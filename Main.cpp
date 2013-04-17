@@ -3,6 +3,7 @@
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
+#include <GL/glut.h>
 
 using std::cout;
 using std::endl;
@@ -34,7 +35,14 @@ void loadMeshesData(xmlDocPtr doc) {
 	cout << "Found " << nodeset->nodeNr << " nodes." << endl;
 }
 
-int main() {
+
+void render() {
+	glClearColor(1.0, 1.0, 1.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+int main(int argc, char **argv) {
+	glutInit(&argc, argv);
 	cout << "Hello, animated character!" << endl;
 	const char *filename = "Character.dae";
 
@@ -55,6 +63,10 @@ int main() {
 
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
+
+	glutCreateWindow("Animated character");
+	glutDisplayFunc(render);
+	glutMainLoop();
 
 	return 0;
 }
