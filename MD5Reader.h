@@ -13,8 +13,14 @@ class Md5Reader {
 public:
 	AnimInfo parse(const std::string &filename);
 private:
-	void checkVersion();
+	void processVersion();
+	void processCommandLine();
+	void processJointsAndMeshCounts();
+	void processJoints();
+	void buildJoint(const std::string &line, int count);
+private:
 	std::ifstream mFile;
+	std::vector<Joint> mJoints;
 };
 
 #endif

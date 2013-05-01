@@ -6,6 +6,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 struct Joint {
+	std::string name;
 	glm::vec3 position;
 	glm::quat orientation;
 	int parentIndex;
