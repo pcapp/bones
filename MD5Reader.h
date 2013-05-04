@@ -6,7 +6,7 @@
 #include "AnimCore.h"
 
 struct AnimInfo {
-
+	Skeleton skeleton;
 };
 
 class Md5Reader {

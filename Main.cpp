@@ -7,42 +7,29 @@
 
 using namespace std;
 
+AnimInfo g_AnimInfo;
+
 void render() {
-	glClearColor(1.0, 1.0, 1.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
-}
-
-void read_file_test() {
-	//ifstream file("C:\\Users\\Peter\\Desktop\\MOVE\\build\\Debug\\Boblamp\\boblampclean.md5mesh");
-	ifstream file("Boblamp/boblampclean.md5mesh");
-
-	if(!file) {
-		cout << "Could not read the file." << endl;
-	}
-
-	while(!file.eof()) {
-		string line;
-		getline(file, line);
-		cout << line << endl;
-	}
-}
-
-void parse_test() {
-	Md5Reader reader;
-
-	try {
-		reader.parse("Boblamp/boblampclean.md5mesh");
-	}
-	catch(exception &e) {
-		cout << e.what() << endl;
-	}
-
-	cout << "Parsed successfully." << endl;
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 int main(int argc, char **argv) {
-	//read_file_test();
-	parse_test();
+	Md5Reader reader;
+
+	try {
+		g_AnimInfo = reader.parse("Boblamp/boblampclean.md5mesh");
+	}
+	catch(exception &e) {
+		cout << e.what() << endl;
+		return -1;
+	}
+
+	glutInit(&argc, argv);
+	glutInitWindowSize(640, 480);
+	glutCreateWindow("Animated character");	
+	glutDisplayFunc(render);
+	glutMainLoop();
 
 	return 0;
 }

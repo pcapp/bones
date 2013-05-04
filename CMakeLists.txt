@@ -30,3 +30,5 @@ add_custom_command(TARGET main POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/Boblamp $<TARGET_FILE_DIR:main>/Boblamp
 	COMMAND ${CMAKE_COMMAND} -E echo "END POST_BUILD"
 )
+
+add_executable(skeleton_test skeleton_test.cpp)

@@ -97,8 +97,9 @@ void Md5Reader::processJoints() {
 	}
 
 	int count = 0;
+	getline(mFile, line); // Advance to the next line
 	while(mFile.good() && line != "}") {
-		buildJoint(line, count);
+		buildJoint(line, count++);
 		getline(mFile, line);		
 	}
 }
@@ -107,7 +108,11 @@ void Md5Reader::processJoints() {
 std::ostream & operator<<(std::ostream &out, Joint &joint) {
 	out << joint.name << " ";
 	out << joint.position.x << ", " << joint.position.y << ", " << joint.position.z;
-	out << "(TODO orientation)";
+	out << "[";
+	out << joint.orientation.w << " (" 
+		<< joint.orientation.x << ", " 
+		<< joint.orientation.y << ", "
+		<< joint.orientation.z << ")]";
 
 	return out;
 }
@@ -116,17 +121,36 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	Joint j;
 	stringstream tokens(line);
 	string dump;
+	float w, x, y, z;
 
 	tokens >> j.name;
 	tokens >> j.parentIndex;
-	tokens >> dump; // (
+	tokens >> dump;
 	tokens >> j.position.x;
 	tokens >> j.position.y;
 	tokens >> j.position.z;
+	tokens >> dump;
+	tokens >> dump;
+	tokens >> x;
+	tokens >> y;
+	tokens >> z;
 
-	// TODO Handle the orientation here.
+	// We must calculate w.
+	// w = +/- sqrt(1 - x^2 - y^2 - z^2)
+	// Convention dictates using the negative version
+	float temp = 1.0f - x*x - y*y - z*z;
+	if(temp < 0.0) {
+		//cout << "Less than 0 case. (" << j.name << ") -sqrtf yields " << (-sqrtf(temp)) << endl;
+		w = 0.0f;
+	} else {
+		w = -sqrtf(temp);
+	}
 
-	cout << j << endl;
+	j.orientation.x = x;
+	j.orientation.y = y;
+	j.orientation.z = z;
+
+	mJoints[count] = j;	
 }
 
 AnimInfo Md5Reader::parse(const string &filename) {
@@ -142,6 +166,8 @@ AnimInfo Md5Reader::parse(const string &filename) {
 	processCommandLine();
 	processJointsAndMeshCounts();
 	processJoints();
+
+	info.skeleton.joints = mJoints;
 	
 	return info;
 }
