@@ -16,14 +16,16 @@ void render() {
 
 int main(int argc, char **argv) {
 	Md5Reader reader;
+	const string filename("Boblamp/boblampclean.md5mesh");
 
 	try {
-		g_AnimInfo = reader.parse("Boblamp/boblampclean.md5mesh");
+		g_AnimInfo = reader.parse(filename);
 	}
 	catch(exception &e) {
 		cout << e.what() << endl;
 		return -1;
 	}
+	cout << "Parsed " << filename << " successfully." << endl; 
 
 	glutInit(&argc, argv);
 	glutInitWindowSize(640, 480);

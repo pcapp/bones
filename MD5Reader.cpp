@@ -3,6 +3,7 @@
 #include <exception>
 #include <sstream>
 #include <regex>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "AnimCore.h"
 #include "MD5Reader.h"
@@ -16,6 +17,8 @@ using std::cout;
 using std::regex;
 using std::smatch;
 using std::regex_match;
+
+using glm::mat4;
 
 void Md5Reader::processVersion() {	
 	string line;
@@ -104,6 +107,27 @@ void Md5Reader::processJoints() {
 	}
 }
 
+mat4 Md5Reader::getChildToParentMatrix(const Joint &joint) {
+	mat4 rotM(glm::mat4_cast(joint.orientation));
+	mat4 transM = glm::translate(mat4(1.0f), joint.position);
+	
+	return transM * rotM;
+}
+
+void Md5Reader::computeJointToWorld(Joint &joint) {
+	mat4 P(1.0);
+	const Joint *pJoint = &joint;
+
+	while(pJoint) {		
+		mat4 P_next = getChildToParentMatrix(*pJoint);
+		P = P_next * P;
+
+		pJoint = (pJoint->parentIndex == -1) ? nullptr : &mJoints[pJoint->parentIndex];
+	}
+		 
+	joint.jointToWorld = P;
+}
+
 
 std::ostream & operator<<(std::ostream &out, Joint &joint) {
 	out << joint.name << " ";
@@ -158,7 +182,8 @@ AnimInfo Md5Reader::parse(const string &filename) {
 
 	mFile.open(filename);
 
-	if(!mFile.is_open()) {				
+	if(!mFile) {				
+		cout << "Could not open " << filename << endl;
 		throw exception("Could not open the file.");
 	} 
 

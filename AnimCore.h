@@ -9,6 +9,7 @@ struct Joint {
 	std::string name;
 	glm::vec3 position;
 	glm::quat orientation;
+	glm::mat4 jointToWorld;
 	// No scale for now
 	int parentIndex;
 };

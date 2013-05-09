@@ -18,6 +18,8 @@ private:
 	void processJointsAndMeshCounts();
 	void processJoints();
 	void buildJoint(const std::string &line, int count);
+	glm::mat4 Md5Reader::getChildToParentMatrix(const Joint &joint);
+	void computeJointToWorld(Joint &joint);
 private:
 	std::ifstream mFile;
 	std::vector<Joint> mJoints;

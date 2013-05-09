@@ -63,14 +63,14 @@ void jointToWorldTest() {
 	// J1 Setup
 	j1.name = "J1";
 	j1.parentIndex = 0;
-	j1.position.x = 70.1;
-	j1.position.y = 70.1;
+	j1.position.x = 70.1f;
+	j1.position.y = 70.1f;
 	j1.orientation = glm::quat_cast(glm::rotate(mat4(), 45.0f, vec3(0, 0, 1)));
 	
 	j1.name = "J2";
 	j1.parentIndex = 0;
-	j1.position.x = 70.1;
-	j1.position.y = 70.1;
+	j1.position.x = 70.1f;
+	j1.position.y = 70.1f;
 	j1.orientation = glm::quat_cast(glm::rotate(mat4(), 45.0f, vec3(0, 0, 1)));
 
 
@@ -94,7 +94,7 @@ void childToParentTest() {
 
 	skeleton.joints.push_back(j0);
 
-	mat4 P = getChildToParentMatrix(j0);
+	mat4 P = getChildToParentMatrix(j0)  ;
 	printMatrix(P);
 
 	vec4 v(0,100, 0, 1); // Make it homogenous with w = 1
