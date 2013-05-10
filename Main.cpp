@@ -109,6 +109,8 @@ bool makeShaderProgram() {
 void render() {
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glutSwapBuffers();
 }
 
 int main(int argc, char **argv) {
@@ -125,6 +127,11 @@ int main(int argc, char **argv) {
 	cout << "Parsed " << filename << " successfully." << endl; 
 
 	glutInit(&argc, argv);
+#ifdef __APPLE__
+	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+#else
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+#endif
 	glutInitWindowSize(640, 480);
 	glutCreateWindow("Animated character");	
 	// Context created at this point

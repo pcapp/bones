@@ -1,6 +1,7 @@
 #include <string>
 #include <iostream>
 #include <exception>
+#include <stdexcept>
 #include <sstream>
 #include <regex>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,6 +10,7 @@
 #include "MD5Reader.h"
 
 using std::exception;
+using std::runtime_error;
 using std::string;
 using std::ifstream;
 using std::stringstream;
@@ -32,7 +34,7 @@ void Md5Reader::processVersion() {
 	sstream >> versionNum;
 
 	if(versionNum != 10) {
-		throw exception("Only processing version 10 of the MD5 spec.");
+		throw runtime_error("Only processing version 10 of the MD5 spec.");
 	}
 }
 
@@ -52,7 +54,7 @@ void Md5Reader::processJointsAndMeshCounts() {
 	} while(mFile && line == "");
 
 	if(!mFile) {
-		throw exception("EOF reached and no joint count found.");
+		throw runtime_error("EOF reached and no joint count found.");
 	}
 
 	stringstream tokens(line);
@@ -69,7 +71,7 @@ void Md5Reader::processJointsAndMeshCounts() {
 	} while(mFile && line == "");
 
 	if(!mFile) {
-		throw exception("EOF reached and no mesh count found.");
+		throw runtime_error("EOF reached and no mesh count found.");
 	}
 
 	
@@ -96,7 +98,7 @@ void Md5Reader::processJoints() {
 	tokens >> type;
 	// Should be "joints"
 	if(type != "joints") {
-		throw exception("Expected a joints block.");
+		throw runtime_error("Expected a joints block.");
 	}
 
 	int count = 0;
@@ -184,7 +186,7 @@ AnimInfo Md5Reader::parse(const string &filename) {
 
 	if(!mFile) {				
 		cout << "Could not open " << filename << endl;
-		throw exception("Could not open the file.");
+		throw runtime_error("Could not open the file.");
 	} 
 
 	processVersion();
