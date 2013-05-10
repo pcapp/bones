@@ -106,9 +106,47 @@ bool makeShaderProgram() {
 	return true;
 }
 
+void setUpModel() {
+	float zPos = 0.5f;
+
+	GLfloat points[] = {
+		-0.75f, 0.0f, zPos, 1.0f, 0.0f, 0.0f, 1.0f,
+		0.75f, 0.0f, zPos, 0.0f, 1.0f, 0.0f, 1.0f,
+		0.0f, 0.75f, zPos, 0.0f, 0.0f, 1.0f, 1.0f 
+	};
+
+	// Set up the vertex buffer object
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+
+	// Set up the vertex array object
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	glEnableVertexAttribArray(0); // Vertex position
+	glEnableVertexAttribArray(1); // RGBA
+	GLsizei stride = 7 * sizeof(GLfloat);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, 0);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void *)(3 * sizeof(GLfloat)));
+
+	// Set up the indices
+	GLushort indices[3] = {0, 1, 2};
+	glGenBuffers(1, &hIndexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) * sizeof(GLushort), indices, GL_STATIC_DRAW);
+
+	glPointSize(5.0f);
+}
+
 void render() {
-	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(hProgram);
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
+	glDrawElements(GL_POINTS, 3, GL_UNSIGNED_SHORT, 0);
 
 	glutSwapBuffers();
 }
@@ -141,6 +179,7 @@ int main(int argc, char **argv) {
 		cout << "Unable to build the shader program." << endl;
 		return -1;
 	}
+	setUpModel();
 
 	glutDisplayFunc(render);
 	glutMainLoop();
