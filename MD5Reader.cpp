@@ -19,8 +19,9 @@ using std::cout;
 using std::regex;
 using std::smatch;
 using std::regex_match;
-
 using glm::mat4;
+
+
 
 void Md5Reader::processVersion() {	
 	string line;

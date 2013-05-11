@@ -10,12 +10,20 @@
 #include <sstream>
 #include <string>
 #include <iostream>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "AnimCore.h"
 #include "MD5Reader.h"
 
 using namespace std;
+using glm::mat4;
+using glm::vec3;
 
+////////////////////////
+// GLOBALS
+////////////////////////
 AnimInfo g_AnimInfo;
 
 GLuint hProgram;
@@ -24,6 +32,15 @@ GLuint hFragShader;
 GLuint vbo;
 GLuint vao;
 GLuint hIndexBuffer;
+
+float yRotation = 0.0f;
+
+mat4 model;
+mat4 view;
+mat4 projection;
+mat4 MVP;
+
+const int kTimerPeriod = 50;
 
 bool buildShader(GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
@@ -103,11 +120,14 @@ bool makeShaderProgram() {
 		return false;
 	}
 
+	projection = glm::perspective(45.0f, 4.0f/3.0f, 0.1f, 100.0f);
+	view = glm::translate(mat4(), vec3(0, 0, -5));
+	
 	return true;
 }
 
 void setUpModel() {
-	float zPos = 0.5f;
+	float zPos = 0.0f;
 
 	GLfloat points[] = {
 		-0.75f, 0.0f, zPos, 1.0f, 0.0f, 0.0f, 1.0f,
@@ -144,11 +164,22 @@ void render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(hProgram);
+	MVP = projection * view * model;
+	GLint location = glGetUniformLocation(hProgram, "MVP");
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
 	glDrawElements(GL_POINTS, 3, GL_UNSIGNED_SHORT, 0);
 
 	glutSwapBuffers();
+}
+
+void onTimerTick(int value) {
+	yRotation += 5.0f;
+	model = glm::rotate(mat4(), yRotation, vec3(0, 1, 0));
+
+	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	glutPostRedisplay();
 }
 
 int main(int argc, char **argv) {
@@ -182,6 +213,7 @@ int main(int argc, char **argv) {
 	setUpModel();
 
 	glutDisplayFunc(render);
+	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
 	glutMainLoop();
 
 	return 0;
