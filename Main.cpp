@@ -21,6 +21,15 @@ using namespace std;
 using glm::mat4;
 using glm::vec3;
 
+struct Bounds {
+	float minX;
+	float maxX;
+	float minY;
+	float maxY;
+	float minZ;
+	float maxZ;
+};
+
 ////////////////////////
 // GLOBALS
 ////////////////////////
@@ -40,7 +49,10 @@ mat4 view;
 mat4 projection;
 mat4 MVP;
 
+Bounds bounds;
+
 const int kTimerPeriod = 50;
+const float kFovY = 45.0f;
 
 bool buildShader(GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
@@ -120,9 +132,6 @@ bool makeShaderProgram() {
 		return false;
 	}
 
-	projection = glm::perspective(45.0f, 4.0f/3.0f, 0.1f, 100.0f);
-	view = glm::translate(mat4(), vec3(0, 0, -5));
-	
 	return true;
 }
 
@@ -134,6 +143,15 @@ void setUpModel() {
 		0.75f, 0.0f, zPos, 0.0f, 1.0f, 0.0f, 1.0f,
 		0.0f, 0.75f, zPos, 0.0f, 0.0f, 1.0f, 1.0f 
 	};
+
+	// This is mostly to simulate having loaded a model. We'll hardcode it to fulfill this criteria.
+	// Our model loader will take care of this.
+	bounds.minX = -0.75f;
+	bounds.maxX = 0.75f;
+	bounds.minY = 0.0f;
+	bounds.maxY = 0.75f;
+	bounds.minZ = zPos;
+	bounds.maxZ = zPos;
 
 	// Set up the vertex buffer object
 	glGenBuffers(1, &vbo);
@@ -157,6 +175,20 @@ void setUpModel() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) * sizeof(GLushort), indices, GL_STATIC_DRAW);
 
 	glPointSize(5.0f);
+}
+
+void setUpCamera() {
+	// Set up the camera to frame the model. 
+	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 100.0f);
+	
+	float modelLen = max(bounds.minY, bounds.maxY);
+	float totalLen = modelLen / 0.8f;
+	float half_fov = kFovY / 2.0f; // Normally done by our camera
+
+	float radians = half_fov * 3.1459895f / 180.0f;
+	float z = totalLen / tan(radians);
+	
+	view = glm::translate(mat4(), vec3(0, 0, -z));
 }
 
 void render() {
@@ -211,6 +243,7 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	setUpModel();
+	setUpCamera();
 
 	glutDisplayFunc(render);
 	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
