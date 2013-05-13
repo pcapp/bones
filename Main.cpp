@@ -134,6 +134,40 @@ bool makeShaderProgram() {
 	return true;
 }
 
+void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
+	if(n % 3 != 0) {		
+		throw runtime_error("Each vertex must have 3 floats");
+	}
+
+	bounds.minX = bounds.minY = bounds.minZ = std::numeric_limits<GLfloat>::max();
+	bounds.maxX = bounds.maxY = bounds.maxZ = std::numeric_limits<GLfloat>::min();
+
+	for(int i = 0; i < n; /* Incremented in loop */) {
+		GLfloat x = vertices[i++];
+		GLfloat y = vertices[i++];
+		GLfloat z = vertices[i++];
+
+		if(x < bounds.minX) {
+			bounds.minX = x;
+		}
+		if(x > bounds.maxX) {
+			bounds.maxX = x;
+		}
+		if(y < bounds.minY) {
+			bounds.minY = y;
+		}
+		if(y > bounds.maxY) {
+			bounds.maxY = y;
+		}
+		if(z < bounds.minZ) {
+			bounds.minZ = z;
+		}
+		if(z > bounds.maxZ) {
+			bounds.maxZ = z;
+		}
+	}
+}
+
 void setUpModel() {
 	float zPos = 0.0f;
 
@@ -149,14 +183,11 @@ void setUpModel() {
 		0.0f, 0.0f, 1.0f, 1.0f 
 	};
 
-	// This is mostly to simulate having loaded a model. We'll hardcode it to fulfill this criteria.
-	// Our model loader will take care of this.
-	bounds.minX = -0.75f;
-	bounds.maxX = 0.75f;
-	bounds.minY = 0.0f;
-	bounds.maxY = 0.75f;
-	bounds.minZ = zPos;
-	bounds.maxZ = zPos;
+	CalculateBounds(vertices, sizeof(vertices), bounds);
+	cout << "Model bounds: " << endl;
+	cout << bounds.minX << " to " << bounds.maxX << endl;
+	cout << bounds.minY << " to " << bounds.maxY << endl;
+	cout << bounds.minZ << " to " << bounds.maxZ << endl;
 
 	// Set up the vertex buffer object
 	GLuint hVerticesBuffer;
