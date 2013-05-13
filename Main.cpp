@@ -48,6 +48,11 @@ mat4 view;
 mat4 projection;
 mat4 MVP;
 
+vector<int> lineIndices;
+GLuint hSkeletonBuffer;
+GLuint hSkeletonVAO;
+GLuint numBonesToDraw;
+
 Bounds bounds;
 
 const int kTimerPeriod = 50;
@@ -147,7 +152,7 @@ void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
 		GLfloat y = vertices[i++];
 		GLfloat z = vertices[i++];
 
-		cout << (i/3) << " " << x << " " << y << " " << z << endl;
+		//cout << (i/3) << " " << x << " " << y << " " << z << endl;
 
 		if(x < bounds.minX) {
 			bounds.minX = x;
@@ -274,9 +279,65 @@ void setUpModel() {
 	glBindVertexArray(0);
 }
 
+void setUpSkeletonRendering() {
+	vector<GLfloat> vertexData;
+	numBonesToDraw = 0;
+
+	for(int i = 0; i < g_AnimInfo.skeleton.joints.size(); ++i) {
+		const Joint &joint = g_AnimInfo.skeleton.joints[i];
+
+		if(joint.parentIndex != -1) {
+			const Joint &parentJoint = g_AnimInfo.skeleton.joints[joint.parentIndex];
+			
+			cout << joint.name << " to " << parentJoint.name << endl;
+
+			// Start joint
+			vertexData.push_back(joint.position.x);
+			vertexData.push_back(joint.position.y);
+			vertexData.push_back(joint.position.z);
+			vertexData.push_back(0.0f); // R
+			vertexData.push_back(1.0f); // G
+			vertexData.push_back(0.0f); // B
+			vertexData.push_back(1.0f); // A
+
+			// End joint
+			vertexData.push_back(parentJoint.position.x);
+			vertexData.push_back(parentJoint.position.y);
+			vertexData.push_back(parentJoint.position.z);
+			vertexData.push_back(0.0f); // R
+			vertexData.push_back(1.0f); // G
+			vertexData.push_back(0.0f); // B
+			vertexData.push_back(1.0f); // A
+
+			++numBonesToDraw;
+		}
+	}
+
+	cout << "Going to render " << numBonesToDraw << " bones" << endl;
+
+	glGenBuffers(1, &hSkeletonBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), &vertexData[0], GL_STATIC_DRAW);
+
+	// Create the VAO
+	glGenVertexArrays(1, &hSkeletonVAO);
+	glBindVertexArray(hSkeletonVAO);
+
+	glEnableVertexAttribArray(0); // VertexPosition
+	glEnableVertexAttribArray(1); // VertexRGBA
+
+	GLsizei stride = 7 * sizeof(GLfloat);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, 0);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (const GLvoid *)(3 * sizeof(GLfloat)));
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void setUpCamera() {
 	// Set up the camera to frame the model. 
-	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 100000.0f);
+	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
 	
 	float modelLen = max(bounds.minY, bounds.maxY);
 	float totalLen = modelLen / 0.8f;
@@ -286,8 +347,11 @@ void setUpCamera() {
 	float z = totalLen / tan(radians);
 	
 	cout << "Moving the camera to: " << z << endl;
-	view = glm::translate(mat4(), vec3(0, 0, -z));
-	//view = glm::translate(mat4(), vec3(0, 0, -5000));
+	//view = glm::translate(mat4(), vec3(0, 0, -z));
+	view = glm::translate(mat4(), vec3(0, 0, -120));
+	
+	// temp
+	model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
 
 	glPointSize(5.0f);
 }
@@ -303,6 +367,12 @@ void render() {
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
 	glDrawElements(GL_POINTS, g_AnimInfo.skeleton.joints.size(), GL_UNSIGNED_SHORT, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(hSkeletonVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
+	glDrawArrays(GL_LINES, 0, numBonesToDraw * 2);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glutSwapBuffers();
 }
@@ -344,10 +414,11 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	setUpModel();
+	setUpSkeletonRendering();
 	setUpCamera();
 
 	glutDisplayFunc(render);
-	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
 	glutMainLoop();
 
 	return 0;
