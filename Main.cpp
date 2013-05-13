@@ -38,7 +38,6 @@ AnimInfo g_AnimInfo;
 GLuint hProgram;
 GLuint hVertShader;
 GLuint hFragShader;
-GLuint vbo;
 GLuint vao;
 GLuint hIndexBuffer;
 
@@ -138,10 +137,16 @@ bool makeShaderProgram() {
 void setUpModel() {
 	float zPos = 0.0f;
 
-	GLfloat points[] = {
-		-0.75f, 0.0f, zPos, 1.0f, 0.0f, 0.0f, 1.0f,
-		0.75f, 0.0f, zPos, 0.0f, 1.0f, 0.0f, 1.0f,
-		0.0f, 0.75f, zPos, 0.0f, 0.0f, 1.0f, 1.0f 
+	GLfloat vertices[] = {
+		-0.75f, 0.0f, zPos,
+		0.75f, 0.0f, zPos,
+		0.0f, 0.75f, zPos
+	};
+
+	GLfloat colors[] = {
+		1.0f, 0.0f, 0.0f, 1.0f,
+		0.0f, 1.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 1.0f, 1.0f 
 	};
 
 	// This is mostly to simulate having loaded a model. We'll hardcode it to fulfill this criteria.
@@ -154,9 +159,16 @@ void setUpModel() {
 	bounds.maxZ = zPos;
 
 	// Set up the vertex buffer object
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+	GLuint hVerticesBuffer;
+	GLuint hColorsBuffer;
+
+	glGenBuffers(1, &hVerticesBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, hVerticesBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &hColorsBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, hColorsBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
 
 	// Set up the vertex array object
 	glGenVertexArrays(1, &vao);
@@ -164,9 +176,11 @@ void setUpModel() {
 
 	glEnableVertexAttribArray(0); // Vertex position
 	glEnableVertexAttribArray(1); // RGBA
-	GLsizei stride = 7 * sizeof(GLfloat);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, 0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void *)(3 * sizeof(GLfloat)));
+	
+	glBindBuffer(GL_ARRAY_BUFFER, hVerticesBuffer);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+	glBindBuffer(GL_ARRAY_BUFFER, hColorsBuffer);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 	// Set up the indices
 	GLushort indices[3] = {0, 1, 2};
@@ -174,7 +188,8 @@ void setUpModel() {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) * sizeof(GLushort), indices, GL_STATIC_DRAW);
 
-	glPointSize(5.0f);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 }
 
 void setUpCamera() {
@@ -189,6 +204,8 @@ void setUpCamera() {
 	float z = totalLen / tan(radians);
 	
 	view = glm::translate(mat4(), vec3(0, 0, -z));
+
+	glPointSize(5.0f);
 }
 
 void render() {
