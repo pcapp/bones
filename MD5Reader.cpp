@@ -177,6 +177,8 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	j.orientation.y = y;
 	j.orientation.z = z;
 
+	computeJointToWorld(j);
+
 	mJoints[count] = j;	
 }
 

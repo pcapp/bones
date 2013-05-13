@@ -147,6 +147,8 @@ void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
 		GLfloat y = vertices[i++];
 		GLfloat z = vertices[i++];
 
+		cout << (i/3) << " " << x << " " << y << " " << z << endl;
+
 		if(x < bounds.minX) {
 			bounds.minX = x;
 		}
@@ -170,24 +172,59 @@ void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
 
 void setUpModel() {
 	float zPos = 0.0f;
+	vector<GLfloat> vertices;
+	vector<GLfloat> colors;
 
-	GLfloat vertices[] = {
-		-0.75f, 0.0f, zPos,
-		0.75f, 0.0f, zPos,
-		0.0f, 0.75f, zPos
-	};
+	for(int i = 0; i < g_AnimInfo.skeleton.joints.size(); ++i) {
+		Joint &joint = g_AnimInfo.skeleton.joints[i];
+		mat4 &jointToWorld = joint.jointToWorld;
+		/*GLfloat x = jointToWorld[3][0];
+		GLfloat y = jointToWorld[3][1];
+		GLfloat z = jointToWorld[3][2];*/
+		GLfloat x = joint.position.x;
+		GLfloat y = joint.position.y;
+		GLfloat z = joint.position.z;
 
-	GLfloat colors[] = {
-		1.0f, 0.0f, 0.0f, 1.0f,
-		0.0f, 1.0f, 0.0f, 1.0f,
-		0.0f, 0.0f, 1.0f, 1.0f 
-	};
+		vertices.push_back(x);
+		vertices.push_back(y);
+		vertices.push_back(z);
 
-	CalculateBounds(vertices, sizeof(vertices), bounds);
+		colors.push_back(1.0f);
+		colors.push_back(0.0f);
+		colors.push_back(0.0f);
+		colors.push_back(1.0f);
+	}
+	/*vertices.push_back(-0.75f);
+	vertices.push_back(0.0f);
+	vertices.push_back(zPos);
+	vertices.push_back(0.75f);
+	vertices.push_back(0.0f);
+	vertices.push_back(zPos);
+	vertices.push_back(0.0f);
+	vertices.push_back(0.75f);
+	vertices.push_back(zPos);
+
+	
+	colors.push_back(1.0f);
+	colors.push_back(0.0f);
+	colors.push_back(0.0f);
+	colors.push_back(1.0f);
+
+	colors.push_back(0.0f);
+	colors.push_back(1.0f);
+	colors.push_back(0.0f);
+	colors.push_back(1.0f);
+
+	colors.push_back(0.0f);
+	colors.push_back(0.0f);
+	colors.push_back(1.0f);
+	colors.push_back(1.0f);*/
+
+	CalculateBounds(&vertices[0], vertices.size(), bounds);
 	cout << "Model bounds: " << endl;
-	cout << bounds.minX << " to " << bounds.maxX << endl;
-	cout << bounds.minY << " to " << bounds.maxY << endl;
-	cout << bounds.minZ << " to " << bounds.maxZ << endl;
+	cout << "X: " << bounds.minX << " to " << bounds.maxX << endl;
+	cout << "Y: " << bounds.minY << " to " << bounds.maxY << endl;
+	cout << "Z: " << bounds.minZ << " to " << bounds.maxZ << endl;
 
 	// Set up the vertex buffer object
 	GLuint hVerticesBuffer;
@@ -195,11 +232,11 @@ void setUpModel() {
 
 	glGenBuffers(1, &hVerticesBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, hVerticesBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &vertices[0], GL_STATIC_DRAW);
 
 	glGenBuffers(1, &hColorsBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, hColorsBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &colors[0], GL_STATIC_DRAW);
 
 	// Set up the vertex array object
 	glGenVertexArrays(1, &vao);
@@ -214,10 +251,24 @@ void setUpModel() {
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 	// Set up the indices
-	GLushort indices[3] = {0, 1, 2};
+	//GLushort indices[3] = {0, 1, 2};
+	vector<GLushort> indices;
+	//indices.push_back(0);
+	//indices.push_back(1);
+	//indices.push_back(2);
+	///*
+
+	for(int i = 0; i < vertices.size() / 3; ++i) {
+		indices.push_back(i);
+	}
+	/*
+	for(int i = 0; i < g_AnimInfo.skeleton.joints.size(); ++i) {
+		indices.push_back(i);
+	}*/
+
 	glGenBuffers(1, &hIndexBuffer);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) * sizeof(GLushort), indices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLushort), &indices[0], GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -225,7 +276,7 @@ void setUpModel() {
 
 void setUpCamera() {
 	// Set up the camera to frame the model. 
-	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 100.0f);
+	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 100000.0f);
 	
 	float modelLen = max(bounds.minY, bounds.maxY);
 	float totalLen = modelLen / 0.8f;
@@ -234,7 +285,9 @@ void setUpCamera() {
 	float radians = half_fov * 3.1459895f / 180.0f;
 	float z = totalLen / tan(radians);
 	
+	cout << "Moving the camera to: " << z << endl;
 	view = glm::translate(mat4(), vec3(0, 0, -z));
+	//view = glm::translate(mat4(), vec3(0, 0, -5000));
 
 	glPointSize(5.0f);
 }
@@ -249,7 +302,7 @@ void render() {
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
-	glDrawElements(GL_POINTS, 3, GL_UNSIGNED_SHORT, 0);
+	glDrawElements(GL_POINTS, g_AnimInfo.skeleton.joints.size(), GL_UNSIGNED_SHORT, 0);
 
 	glutSwapBuffers();
 }
