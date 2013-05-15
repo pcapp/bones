@@ -30,6 +30,7 @@ private:
 
 	void processAnimHeader();
 	void processHierarchy();
+	void processBounds();
 private:
 	int mNumFrames;
 	int mFrameRate;

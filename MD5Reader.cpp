@@ -205,6 +205,7 @@ AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename
 
 	processAnimHeader();
 	processHierarchy();
+	processBounds();
 	
 	return info;
 }
@@ -299,4 +300,30 @@ void Md5Reader::processHierarchy() {
 		
 		getline(mAnimFile, line);
 	}
+}
+
+void Md5Reader::processBounds() {
+	string line;
+	stringstream tokens;
+
+	// Eat space
+	do {
+		getline(mAnimFile, line);
+	} while(line == ""); 
+
+	string fieldName;
+	tokens.str(line);
+	tokens >> fieldName;
+
+	if(fieldName != "bounds") {
+		cout << "Field name: " << fieldName << endl;
+		throw runtime_error("Expected a bounds section." );
+	}
+
+	getline(mAnimFile, line);
+	while(line != "}") {
+		getline(mAnimFile, line);
+	}
+
+	cout << "Reached the end of the bounds section." << endl;
 }
