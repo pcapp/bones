@@ -226,10 +226,10 @@ void setUpModel() {
 	colors.push_back(1.0f);*/
 
 	CalculateBounds(&vertices[0], vertices.size(), bounds);
-	cout << "Model bounds: " << endl;
+	/*cout << "Model bounds: " << endl;
 	cout << "X: " << bounds.minX << " to " << bounds.maxX << endl;
 	cout << "Y: " << bounds.minY << " to " << bounds.maxY << endl;
-	cout << "Z: " << bounds.minZ << " to " << bounds.maxZ << endl;
+	cout << "Z: " << bounds.minZ << " to " << bounds.maxZ << endl;*/
 
 	// Set up the vertex buffer object
 	GLuint hVerticesBuffer;
@@ -289,8 +289,6 @@ void setUpSkeletonRendering() {
 		if(joint.parentIndex != -1) {
 			const Joint &parentJoint = g_AnimInfo.skeleton.joints[joint.parentIndex];
 			
-			cout << joint.name << " to " << parentJoint.name << endl;
-
 			// Start joint
 			vertexData.push_back(joint.position.x);
 			vertexData.push_back(joint.position.y);
@@ -348,7 +346,7 @@ void setUpCamera() {
 	
 	cout << "Moving the camera to: " << z << endl;
 	//view = glm::translate(mat4(), vec3(0, 0, -z));
-	view = glm::translate(mat4(), vec3(0, 0, -120));
+	view = glm::translate(mat4(), vec3(0, -20, -120));
 	
 	// temp
 	model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
@@ -387,17 +385,17 @@ void onTimerTick(int value) {
 
 int main(int argc, char **argv) {
 	Md5Reader reader;
-	const string filename("Boblamp/boblampclean.md5mesh");
+	const string meshFilename("Boblamp/boblampclean.md5mesh");
+	const string animFilename("Boblamp/boblampclean.md5anim");
 
 	try {
-		g_AnimInfo = reader.parse(filename);
+		g_AnimInfo = reader.parse(meshFilename, animFilename);
 	}
 	catch(exception &e) {
 		cout << e.what() << endl;
 		return -1;
 	}
-	cout << "Parsed " << filename << " successfully." << endl; 
-
+	
 	glutInit(&argc, argv);
 #ifdef __APPLE__
 	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);

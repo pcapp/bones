@@ -26,7 +26,7 @@ using glm::mat4;
 void Md5Reader::processVersion() {	
 	string line;
 	
-	getline(mFile, line); 
+	getline(mMeshFile, line); 
 	stringstream sstream(line);
 	string versionStr;
 	int versionNum;
@@ -41,7 +41,7 @@ void Md5Reader::processVersion() {
 
 void Md5Reader::processCommandLine() {
 	string line;
-	getline(mFile, line);
+	getline(mMeshFile, line);
 
 	// Just by-passing this for now
 }
@@ -51,10 +51,10 @@ void Md5Reader::processJointsAndMeshCounts() {
 	
 	// Eat spaces
 	do {
-		getline(mFile, line);
-	} while(mFile && line == "");
+		getline(mMeshFile, line);
+	} while(mMeshFile && line == "");
 
-	if(!mFile) {
+	if(!mMeshFile) {
 		throw runtime_error("EOF reached and no joint count found.");
 	}
 
@@ -68,10 +68,10 @@ void Md5Reader::processJointsAndMeshCounts() {
 
 	// Get the mesh info
 	do {
-		getline(mFile, line);
-	} while(mFile && line == "");
+		getline(mMeshFile, line);
+	} while(mMeshFile && line == "");
 
-	if(!mFile) {
+	if(!mMeshFile) {
 		throw runtime_error("EOF reached and no mesh count found.");
 	}
 
@@ -90,8 +90,8 @@ void Md5Reader::processJoints() {
 	string line;
 
 	do {
-		getline(mFile, line);
-	} while(mFile && line == "");
+		getline(mMeshFile, line);
+	} while(mMeshFile && line == "");
 
 	stringstream tokens(line);
 	string type;
@@ -103,10 +103,10 @@ void Md5Reader::processJoints() {
 	}
 
 	int count = 0;
-	getline(mFile, line); // Advance to the next line
-	while(mFile.good() && line != "}") {
+	getline(mMeshFile, line); // Advance to the next line
+	while(mMeshFile.good() && line != "}") {
 		buildJoint(line, count++);
-		getline(mFile, line);		
+		getline(mMeshFile, line);		
 	}
 }
 
@@ -182,15 +182,19 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	mJoints[count] = j;	
 }
 
-AnimInfo Md5Reader::parse(const string &filename) {
+AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename) {
 	AnimInfo info;
 
-	mFile.open(filename);
+	mMeshFile.open(meshFilename);
 
-	if(!mFile) {				
-		cout << "Could not open " << filename << endl;
+	if(!mMeshFile) {				
 		throw runtime_error("Could not open the file.");
 	} 
+
+	mAnimFile.open(animFilename);
+	if(!mAnimFile) {	
+		throw runtime_error(string("Could not open ") + animFilename);
+	}
 
 	processVersion();
 	processCommandLine();
@@ -198,6 +202,101 @@ AnimInfo Md5Reader::parse(const string &filename) {
 	processJoints();
 
 	info.skeleton.joints = mJoints;
+
+	processAnimHeader();
+	processHierarchy();
 	
 	return info;
+}
+
+void Md5Reader::processAnimHeader() {
+	string line;
+	stringstream tokens;
+	int numJoints;
+
+	getline(mAnimFile, line);
+	tokens.str(line);
+
+	string fieldName;
+	int version;
+
+	tokens >> fieldName >> version;
+	if(version != 10) {
+		throw runtime_error("Can only parse version 10");
+	}
+
+	// Command line
+	getline(mAnimFile, line);
+	
+	// Blank line
+	getline(mAnimFile, line);
+	
+	// Number of frames
+	getline(mAnimFile, line);
+	tokens.clear();
+	tokens.str(line);
+	tokens >> fieldName >> mNumFrames;
+	mFramesData.reserve(mNumFrames);
+	
+	// Number of joints
+	getline(mAnimFile, line);
+	tokens.clear();
+	tokens.str(line);
+	tokens >> fieldName >> numJoints;
+	mJointsInfo.reserve(numJoints);
+	
+	// Frame rate
+	getline(mAnimFile, line);
+	tokens.clear();
+	tokens.str(line);
+	tokens >> fieldName >> mFrameRate;
+	
+	// Number of animated components
+	int numAnimatedComponents;
+	getline(mAnimFile, line);
+	tokens.clear();
+	tokens.str(line);
+	tokens >> fieldName >> numAnimatedComponents;
+
+	for(auto frameData : mFramesData) {
+		frameData.reserve(numAnimatedComponents);
+	}
+}
+
+// TEMP
+std::ostream &operator<<(std::ostream &out, const JointInfo &info) {
+	out << info.name << " " << info.parent << " " << info.flags << " " << info.startIndex;
+	return out;
+}
+
+void Md5Reader::processHierarchy() {
+	string line;
+	stringstream tokens;
+	getline(mAnimFile, line);
+
+	while(line == "") {
+		getline(mAnimFile, line);
+	}
+
+	tokens.str(line);
+	string fieldName;
+	tokens >> fieldName;
+
+	if(fieldName != "hierarchy") {
+		throw runtime_error("File-out-of-order exception. hierarchy should come next.");
+	}
+
+	getline(mAnimFile, line);
+	while(line != "}") {
+		tokens.clear();
+		tokens.str(line);
+
+		JointInfo jointInfo;
+		tokens >> jointInfo.name;
+		tokens >> jointInfo.parent;
+		tokens >> jointInfo.flags;
+		tokens >> jointInfo.startIndex;
+		
+		getline(mAnimFile, line);
+	}
 }
