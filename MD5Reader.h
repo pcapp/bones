@@ -16,6 +16,12 @@ struct JointInfo {
 	int startIndex;
 };
 
+
+struct BaseframeJoint {
+	glm::vec3 position;
+	glm::quat orientation;
+};
+
 class Md5Reader {
 public:
 	AnimInfo parse(const std::string &meshFilename, const std::string &animFilename);
@@ -27,14 +33,17 @@ private:
 	void buildJoint(const std::string &line, int count);
 	glm::mat4 getChildToParentMatrix(const Joint &joint);
 	void computeJointToWorld(Joint &joint);
+	void computeWComponent(Joint &joint);
 
 	void processAnimHeader();
 	void processHierarchy();
 	void processBounds();
+	void processBaseframeJoints();
 private:
 	int mNumFrames;
 	int mFrameRate;
 	std::vector<JointInfo> mJointsInfo;
+	std::vector<BaseframeJoint> mBaseframeJoints;
 	std::vector<std::vector<float>> mFramesData;
 	std::ifstream mMeshFile;
 	std::ifstream mAnimFile;

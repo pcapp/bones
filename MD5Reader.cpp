@@ -21,8 +21,6 @@ using std::smatch;
 using std::regex_match;
 using glm::mat4;
 
-
-
 void Md5Reader::processVersion() {	
 	string line;
 	
@@ -131,6 +129,24 @@ void Md5Reader::computeJointToWorld(Joint &joint) {
 	joint.jointToWorld = P;
 }
 
+void Md5Reader::computeWComponent(Joint &j) {
+	// w = +/- sqrt(1 - x^2 - y^2 - z^2)
+	// Convention dictates using the negative version
+	float x = j.orientation.x;
+	float y = j.orientation.y;
+	float z = j.orientation.z;
+	float w;
+
+	float temp = 1.0f - x*x - y*y - z*z;
+	if(temp < 0.0) {
+		//cout << "Less than 0 case. (" << j.name << ") -sqrtf yields " << (-sqrtf(temp)) << endl;
+		w = 0.0f;
+	} else {
+		w = -sqrtf(temp);
+	}
+
+	j.orientation.w = w;
+}
 
 std::ostream & operator<<(std::ostream &out, Joint &joint) {
 	out << joint.name << " ";
@@ -148,7 +164,7 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	Joint j;
 	stringstream tokens(line);
 	string dump;
-	float w, x, y, z;
+	float orientW, orientX, orientY, orientZ;
 
 	tokens >> j.name;
 	tokens >> j.parentIndex;
@@ -158,24 +174,14 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	tokens >> j.position.z;
 	tokens >> dump;
 	tokens >> dump;
-	tokens >> x;
-	tokens >> y;
-	tokens >> z;
+	tokens >> orientX;
+	tokens >> orientY;
+	tokens >> orientZ;
 
-	// We must calculate w.
-	// w = +/- sqrt(1 - x^2 - y^2 - z^2)
-	// Convention dictates using the negative version
-	float temp = 1.0f - x*x - y*y - z*z;
-	if(temp < 0.0) {
-		//cout << "Less than 0 case. (" << j.name << ") -sqrtf yields " << (-sqrtf(temp)) << endl;
-		w = 0.0f;
-	} else {
-		w = -sqrtf(temp);
-	}
-
-	j.orientation.x = x;
-	j.orientation.y = y;
-	j.orientation.z = z;
+	j.orientation.x = orientX;
+	j.orientation.y = orientY;
+	j.orientation.z = orientZ;
+	computeWComponent(j);
 
 	computeJointToWorld(j);
 
@@ -206,6 +212,7 @@ AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename
 	processAnimHeader();
 	processHierarchy();
 	processBounds();
+	processBaseframeJoints();
 	
 	return info;
 }
@@ -245,6 +252,7 @@ void Md5Reader::processAnimHeader() {
 	tokens.str(line);
 	tokens >> fieldName >> numJoints;
 	mJointsInfo.reserve(numJoints);
+	mBaseframeJoints.reserve(numJoints);
 	
 	// Frame rate
 	getline(mAnimFile, line);
@@ -322,6 +330,58 @@ void Md5Reader::processBounds() {
 
 	getline(mAnimFile, line);
 	while(line != "}") {
+		getline(mAnimFile, line);
+	}
+
+	cout << "Reached the end of the bounds section." << endl;
+}
+
+
+std::ostream &operator<<(std::ostream &out, const BaseframeJoint &j) {
+	out << "(" << j.position.x << ", " << j.position.y << ", " << j.position.z << ") ";
+	out << "[" << j.orientation.w << "(" << j.orientation.x << ", " << j.orientation.y << ", " << j.orientation.z << ")] ";
+
+	return out;
+}
+
+void Md5Reader::processBaseframeJoints() {
+	string line;
+	stringstream tokens;
+
+	// Eat space
+	do {
+		getline(mAnimFile, line);
+	} while(line == ""); 
+
+	string fieldName;
+	tokens.str(line);
+	tokens >> fieldName;
+
+	if(fieldName != "baseframe") {
+		throw runtime_error("Expected a baseframe section." );
+	}
+
+	getline(mAnimFile, line);
+	string junk;
+	unsigned count = 0;
+	while(line != "}") {
+		tokens.clear();
+		tokens.str(line);
+		BaseframeJoint joint;
+
+		tokens >> junk; // (
+		tokens >> joint.position.x;
+		tokens >> joint.position.y;
+		tokens >> joint.position.z;
+		tokens >> junk; // )
+		tokens >> junk; // (
+		tokens >> joint.orientation.x;
+		tokens >> joint.orientation.y;
+		tokens >> joint.orientation.z;
+
+		mBaseframeJoints.push_back(joint);
+		cout << joint << endl;
+
 		getline(mAnimFile, line);
 	}
 
