@@ -39,6 +39,7 @@ private:
 	void processHierarchy();
 	void processBounds();
 	void processBaseframeJoints();
+	void processFramesData();
 private:
 	int mNumFrames;
 	int mFrameRate;

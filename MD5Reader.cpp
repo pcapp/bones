@@ -213,6 +213,7 @@ AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename
 	processHierarchy();
 	processBounds();
 	processBaseframeJoints();
+	processFramesData();
 	
 	return info;
 }
@@ -244,7 +245,7 @@ void Md5Reader::processAnimHeader() {
 	tokens.clear();
 	tokens.str(line);
 	tokens >> fieldName >> mNumFrames;
-	mFramesData.reserve(mNumFrames);
+	mFramesData.resize(mNumFrames);
 	
 	// Number of joints
 	getline(mAnimFile, line);
@@ -266,9 +267,9 @@ void Md5Reader::processAnimHeader() {
 	tokens.clear();
 	tokens.str(line);
 	tokens >> fieldName >> numAnimatedComponents;
-
-	for(auto frameData : mFramesData) {
-		frameData.reserve(numAnimatedComponents);
+	
+	for(auto &frameData : mFramesData) {
+		frameData.resize(numAnimatedComponents);
 	}
 }
 
@@ -386,4 +387,46 @@ void Md5Reader::processBaseframeJoints() {
 	}
 
 	cout << "Reached the end of the bounds section." << endl;
+}
+
+void Md5Reader::processFramesData() {
+	string line;
+	stringstream tokens;
+	unsigned frameCount = 0;
+
+	while(frameCount < mNumFrames) {
+		// Eat space
+		do {
+			getline(mAnimFile, line);
+		} while(line == ""); 
+
+		string fieldName;
+		unsigned frameNumber;
+		tokens.clear();
+		tokens.str(line);
+		tokens >> fieldName >> frameNumber;
+
+		if(fieldName != "frame") {
+			throw runtime_error("Expected a frame section." );
+		}
+		
+
+		getline(mAnimFile, line);		
+		std::vector<float> &frameData = mFramesData[frameNumber];
+		unsigned count = 0;
+		while(line != "}") {
+			tokens.clear();
+			tokens.str(line);
+
+			float value;
+			
+			while(tokens >> value) {
+				frameData[count++] = value;
+			}
+
+			getline(mAnimFile, line);
+		}
+	
+		++frameCount;
+	}
 }
