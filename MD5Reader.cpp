@@ -188,8 +188,8 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	mJoints[count] = j;	
 }
 
-AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename) {
-	AnimInfo info;
+MD5_AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename) {
+	MD5_AnimInfo info;
 
 	mMeshFile.open(meshFilename);
 
@@ -202,19 +202,25 @@ AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename
 		throw runtime_error(string("Could not open ") + animFilename);
 	}
 
+	// Process the mesh data
 	processVersion();
 	processCommandLine();
 	processJointsAndMeshCounts();
 	processJoints();
 
-	info.skeleton.joints = mJoints;
-
+	// Process the animation data
 	processAnimHeader();
 	processHierarchy();
 	processBounds();
 	processBaseframeJoints();
 	processFramesData();
 	
+	info.baseframeJoints = mBaseframeJoints;
+	info.jointsInfo = mJointsInfo;
+
+	// temp
+	info.joints = mJoints;
+
 	return info;
 }
 
@@ -306,6 +312,8 @@ void Md5Reader::processHierarchy() {
 		tokens >> jointInfo.parent;
 		tokens >> jointInfo.flags;
 		tokens >> jointInfo.startIndex;
+
+		mJointsInfo.push_back(jointInfo);
 		
 		getline(mAnimFile, line);
 	}
@@ -333,8 +341,6 @@ void Md5Reader::processBounds() {
 	while(line != "}") {
 		getline(mAnimFile, line);
 	}
-
-	cout << "Reached the end of the bounds section." << endl;
 }
 
 
@@ -381,12 +387,10 @@ void Md5Reader::processBaseframeJoints() {
 		tokens >> joint.orientation.z;
 
 		mBaseframeJoints.push_back(joint);
-		cout << joint << endl;
+		//cout << joint << endl;
 
 		getline(mAnimFile, line);
 	}
-
-	cout << "Reached the end of the bounds section." << endl;
 }
 
 void Md5Reader::processFramesData() {

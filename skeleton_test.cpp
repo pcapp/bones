@@ -7,6 +7,7 @@
 
 using namespace std;
 
+using std::cout;
 using glm::vec3;
 using glm::vec4;
 using glm::mat4;
@@ -51,8 +52,29 @@ mat4 jointToWorld(const Skeleton &skeleton, const Joint &joint) {
 	return P;
 }
 
+void buildJointToWorldMatrices(Skeleton &skeleton) {
+	for(int i = 0; i < skeleton.joints.size(); ++i) {
+		Joint &joint = skeleton.joints[i];
+
+		glm::mat4 rotM = glm::mat4_cast(joint.orientation);
+		glm::mat4 transM = glm::translate(mat4(1.0f), joint.position);
+
+		mat4 toParentM = transM * rotM;
+
+		if(i == 0) {
+			joint.jointToWorld = toParentM;
+		} else {
+			const Joint &parent = skeleton.joints[joint.parentIndex];
+			joint.jointToWorld = parent.jointToWorld * toParentM;
+		}
+
+		cout << joint.name << " to model: " << endl;
+		printMatrix(joint.jointToWorld);
+	}
+}
+
 void jointToWorldTest() {
-	Joint j0, j1;
+	Joint j0, j1, j2;
 
 	// J0 Setup
 	j0.name = "J0";
@@ -67,20 +89,23 @@ void jointToWorldTest() {
 	j1.position.y = 70.1f;
 	j1.orientation = glm::quat_cast(glm::rotate(mat4(), 45.0f, vec3(0, 0, 1)));
 	
-	j1.name = "J2";
-	j1.parentIndex = 0;
-	j1.position.x = 70.1f;
-	j1.position.y = 70.1f;
-	j1.orientation = glm::quat_cast(glm::rotate(mat4(), 45.0f, vec3(0, 0, 1)));
+	j2.name = "J2";
+	j2.parentIndex = 1;
+	//j2.position.x = 70.1f;
+	j2.position.x = 0;
+	j2.position.y = 100.0f;
+	//j2.orientation = glm::quat_cast(glm::rotate(mat4(), 45.0f, vec3(0, 0, 1)));
 
 
 	Skeleton skeleton;
 	skeleton.joints.push_back(j0);
 	skeleton.joints.push_back(j1);
+	skeleton.joints.push_back(j2);
 
-	mat4 worldM = jointToWorld(skeleton, j1);
+	buildJointToWorldMatrices(skeleton);
+	//mat4 worldM = jointToWorld(skeleton, j2);
 
-	cout << "World coordinate: " << worldM[3][0] << ", " << worldM[3][1] << ", " << worldM[3][2] << endl;
+	//cout << "World coordinate: " << worldM[3][0] << ", " << worldM[3][1] << ", " << worldM[3][2] << endl;
 }
 
 void childToParentTest() {

@@ -20,6 +20,7 @@
 using namespace std;
 using glm::mat4;
 using glm::vec3;
+using glm::vec4;
 
 struct Bounds {
 	float minX;
@@ -33,7 +34,7 @@ struct Bounds {
 ////////////////////////
 // GLOBALS
 ////////////////////////
-AnimInfo g_AnimInfo;
+MD5_AnimInfo g_AnimInfo;
 
 GLuint hProgram;
 GLuint hVertShader;
@@ -175,20 +176,70 @@ void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
 	}
 }
 
+mat4 getChildToParentMatrix(const BaseframeJoint &joint) {
+	mat4 rotM(glm::mat4_cast(joint.orientation));
+	mat4 transM = glm::translate(mat4(1.0f), joint.position);
+	
+	return transM * rotM;
+}
+
+mat4 computeJointToWorld(unsigned index) {
+	mat4 P(1.0f);
+
+	int curIndex = index;
+
+	while(curIndex > -1) {
+		BaseframeJoint &joint =  g_AnimInfo.baseframeJoints[curIndex];
+		JointInfo &info = g_AnimInfo.jointsInfo[curIndex];
+
+		mat4 rotM = glm::mat4_cast(joint.orientation);
+		mat4 transM = glm::translate(mat4(1.0f), joint.position);
+
+		P = P * transM * rotM;
+		curIndex = info.parent;
+	}
+		 
+	return P;
+}
+ostream &operator<<(ostream &out, const vec4 &v) {
+	out << "<" << v.x << ", " << v.y << ", " << v.z << ">";
+	return out;
+}
+
 void setUpModel() {
 	float zPos = 0.0f;
 	vector<GLfloat> vertices;
 	vector<GLfloat> colors;
 
-	for(int i = 0; i < g_AnimInfo.skeleton.joints.size(); ++i) {
-		Joint &joint = g_AnimInfo.skeleton.joints[i];
-		mat4 &jointToWorld = joint.jointToWorld;
-		/*GLfloat x = jointToWorld[3][0];
-		GLfloat y = jointToWorld[3][1];
-		GLfloat z = jointToWorld[3][2];*/
+	for(int i = 0; i < g_AnimInfo.baseframeJoints.size(); ++i) {
+		/*Joint &joint = g_AnimInfo.joints[i];
 		GLfloat x = joint.position.x;
 		GLfloat y = joint.position.y;
-		GLfloat z = joint.position.z;
+		GLfloat z = joint.position.z;*/
+
+		BaseframeJoint &joint = g_AnimInfo.baseframeJoints[i];
+		JointInfo &info = g_AnimInfo.jointsInfo[i];
+
+		glm::mat4 rotM = glm::mat4_cast(joint.orientation);
+		glm::mat4 transM = glm::translate(mat4(1.0f), joint.position);
+
+		mat4 toParentM = transM * rotM;
+
+		if(i == 0) {
+			joint.jointToWorld = toParentM;
+		} else {
+			const BaseframeJoint &parent = g_AnimInfo.baseframeJoints[info.parent];
+			joint.jointToWorld = parent.jointToWorld * toParentM;
+		}
+
+		glm::vec4 translation = joint.jointToWorld[3];
+		glm::quat rot = glm::quat_cast(joint.jointToWorld);
+
+		cout << info.name << " " << translation << " [(" << rot.w << " (" << rot.x << ", " << rot.y << ", " << rot.z << ")]" << endl;
+
+		GLfloat x = translation.x;
+		GLfloat y = translation.y;
+		GLfloat z = translation.z;
 
 		vertices.push_back(x);
 		vertices.push_back(y);
@@ -199,37 +250,8 @@ void setUpModel() {
 		colors.push_back(0.0f);
 		colors.push_back(1.0f);
 	}
-	/*vertices.push_back(-0.75f);
-	vertices.push_back(0.0f);
-	vertices.push_back(zPos);
-	vertices.push_back(0.75f);
-	vertices.push_back(0.0f);
-	vertices.push_back(zPos);
-	vertices.push_back(0.0f);
-	vertices.push_back(0.75f);
-	vertices.push_back(zPos);
-
 	
-	colors.push_back(1.0f);
-	colors.push_back(0.0f);
-	colors.push_back(0.0f);
-	colors.push_back(1.0f);
-
-	colors.push_back(0.0f);
-	colors.push_back(1.0f);
-	colors.push_back(0.0f);
-	colors.push_back(1.0f);
-
-	colors.push_back(0.0f);
-	colors.push_back(0.0f);
-	colors.push_back(1.0f);
-	colors.push_back(1.0f);*/
-
 	CalculateBounds(&vertices[0], vertices.size(), bounds);
-	/*cout << "Model bounds: " << endl;
-	cout << "X: " << bounds.minX << " to " << bounds.maxX << endl;
-	cout << "Y: " << bounds.minY << " to " << bounds.maxY << endl;
-	cout << "Z: " << bounds.minZ << " to " << bounds.maxZ << endl;*/
 
 	// Set up the vertex buffer object
 	GLuint hVerticesBuffer;
@@ -256,21 +278,11 @@ void setUpModel() {
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 	// Set up the indices
-	//GLushort indices[3] = {0, 1, 2};
 	vector<GLushort> indices;
-	//indices.push_back(0);
-	//indices.push_back(1);
-	//indices.push_back(2);
-	///*
-
 	for(int i = 0; i < vertices.size() / 3; ++i) {
 		indices.push_back(i);
 	}
-	/*
-	for(int i = 0; i < g_AnimInfo.skeleton.joints.size(); ++i) {
-		indices.push_back(i);
-	}*/
-
+	
 	glGenBuffers(1, &hIndexBuffer);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLushort), &indices[0], GL_STATIC_DRAW);
@@ -283,25 +295,40 @@ void setUpSkeletonRendering() {
 	vector<GLfloat> vertexData;
 	numBonesToDraw = 0;
 
-	for(int i = 0; i < g_AnimInfo.skeleton.joints.size(); ++i) {
-		const Joint &joint = g_AnimInfo.skeleton.joints[i];
+	for(int i = 0; i < g_AnimInfo.baseframeJoints.size(); ++i) {
+		const BaseframeJoint &joint = g_AnimInfo.baseframeJoints[i];
+		const JointInfo &info = g_AnimInfo.jointsInfo[i];
 
-		if(joint.parentIndex != -1) {
-			const Joint &parentJoint = g_AnimInfo.skeleton.joints[joint.parentIndex];
+		if(info.parent != -1) {
+			const BaseframeJoint &parentJoint = g_AnimInfo.baseframeJoints[info.parent];
+			const JointInfo &parentInfo = g_AnimInfo.jointsInfo[info.parent];
+			cout << info.name << " to " << parentInfo.name << endl;
 			
 			// Start joint
-			vertexData.push_back(joint.position.x);
+			mat4 modelM = computeJointToWorld(i);
+			
+			/*vertexData.push_back(joint.position.x);
 			vertexData.push_back(joint.position.y);
-			vertexData.push_back(joint.position.z);
+			vertexData.push_back(joint.position.z);*/
+			
+			vertexData.push_back(model[3][0]);
+			vertexData.push_back(model[3][1]);
+			vertexData.push_back(model[3][2]);
 			vertexData.push_back(0.0f); // R
 			vertexData.push_back(1.0f); // G
 			vertexData.push_back(0.0f); // B
 			vertexData.push_back(1.0f); // A
 
 			// End joint
-			vertexData.push_back(parentJoint.position.x);
-			vertexData.push_back(parentJoint.position.y);
-			vertexData.push_back(parentJoint.position.z);
+			modelM = computeJointToWorld(info.parent);
+			
+			//vertexData.push_back(parentJoint.position.x);
+			//vertexData.push_back(parentJoint.position.y);
+			//vertexData.push_back(parentJoint.position.z);
+			vertexData.push_back(model[3][0]);
+			vertexData.push_back(model[3][1]);
+			vertexData.push_back(model[3][2]);
+
 			vertexData.push_back(0.0f); // R
 			vertexData.push_back(1.0f); // G
 			vertexData.push_back(0.0f); // B
@@ -364,13 +391,13 @@ void render() {
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
-	glDrawElements(GL_POINTS, g_AnimInfo.skeleton.joints.size(), GL_UNSIGNED_SHORT, 0);
+	glDrawElements(GL_POINTS, g_AnimInfo.baseframeJoints.size(), GL_UNSIGNED_SHORT, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	glBindVertexArray(hSkeletonVAO);
+	/*glBindVertexArray(hSkeletonVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
 	glDrawArrays(GL_LINES, 0, numBonesToDraw * 2);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);*/
 
 	glutSwapBuffers();
 }
@@ -412,12 +439,12 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	setUpModel();
-	setUpSkeletonRendering();
+	//setUpSkeletonRendering();
 	setUpCamera();
 
 	glutDisplayFunc(render);
 	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
-	glutMainLoop();
+	//glutMainLoop();
 
 	return 0;
 }

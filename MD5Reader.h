@@ -5,10 +5,6 @@
 #include <fstream>
 #include "AnimCore.h"
 
-struct AnimInfo {
-	Skeleton skeleton;
-};
-
 struct JointInfo {
 	std::string name;
 	int parent;
@@ -16,15 +12,23 @@ struct JointInfo {
 	int startIndex;
 };
 
-
 struct BaseframeJoint {
 	glm::vec3 position;
 	glm::quat orientation;
+	glm::mat4 jointToWorld;
+};
+
+struct MD5_AnimInfo {
+	std::vector<BaseframeJoint> baseframeJoints;
+	std::vector<JointInfo> jointsInfo;
+
+	// temp
+	std::vector<Joint> joints;
 };
 
 class Md5Reader {
 public:
-	AnimInfo parse(const std::string &meshFilename, const std::string &animFilename);
+	MD5_AnimInfo parse(const std::string &meshFilename, const std::string &animFilename);
 private:
 	void processVersion();
 	void processCommandLine();

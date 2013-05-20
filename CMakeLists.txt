@@ -45,3 +45,4 @@ add_custom_command(TARGET main POST_BUILD
 )
 
 add_executable(skeleton_test skeleton_test.cpp)
+add_executable(conversion_test conversion_test.cpp)
