@@ -217,6 +217,7 @@ MD5_AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFile
 	
 	info.baseframeJoints = mBaseframeJoints;
 	info.jointsInfo = mJointsInfo;
+	info.framesData = mFramesData;
 
 	// temp
 	info.joints = mJoints;

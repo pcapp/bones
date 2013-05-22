@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+ #include <GL/glew.h>
 #if __APPLE__
 	#include <GLUT/glut.h>
 #else 
@@ -13,6 +13,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include "AnimCore.h"
 #include "MD5Reader.h"
@@ -21,6 +22,7 @@ using namespace std;
 using glm::mat4;
 using glm::vec3;
 using glm::vec4;
+using glm::quat;
 
 struct Bounds {
 	float minX;
@@ -58,6 +60,15 @@ Bounds bounds;
 
 const int kTimerPeriod = 50;
 const float kFovY = 45.0f;
+
+struct FrameJoint {
+	string name;
+	vec3 position;
+	quat orientation;
+	int parentIndex;
+};
+
+vector<FrameJoint> frameSkeleton;
 
 bool buildShader(GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
@@ -153,8 +164,6 @@ void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
 		GLfloat y = vertices[i++];
 		GLfloat z = vertices[i++];
 
-		//cout << (i/3) << " " << x << " " << y << " " << z << endl;
-
 		if(x < bounds.minX) {
 			bounds.minX = x;
 		}
@@ -176,34 +185,78 @@ void CalculateBounds(GLfloat *vertices, int n, Bounds &bounds) {
 	}
 }
 
-mat4 getChildToParentMatrix(const BaseframeJoint &joint) {
-	mat4 rotM(glm::mat4_cast(joint.orientation));
-	mat4 transM = glm::translate(mat4(1.0f), joint.position);
-	
-	return transM * rotM;
-}
-
-mat4 computeJointToWorld(unsigned index) {
-	mat4 P(1.0f);
-
-	int curIndex = index;
-
-	while(curIndex > -1) {
-		BaseframeJoint &joint =  g_AnimInfo.baseframeJoints[curIndex];
-		JointInfo &info = g_AnimInfo.jointsInfo[curIndex];
-
-		mat4 rotM = glm::mat4_cast(joint.orientation);
-		mat4 transM = glm::translate(mat4(1.0f), joint.position);
-
-		P = P * transM * rotM;
-		curIndex = info.parent;
-	}
-		 
-	return P;
-}
 ostream &operator<<(ostream &out, const vec4 &v) {
 	out << "<" << v.x << ", " << v.y << ", " << v.z << ">";
 	return out;
+}
+
+void createFrameSkeleton() {
+	const int kNumJoints = g_AnimInfo.baseframeJoints.size();
+	const vector<float> frameData = g_AnimInfo.framesData[0]; // Render frame 0
+
+	for(int i = 0; i < kNumJoints; ++i) {
+		FrameJoint frameJoint;
+		const BaseframeJoint &baseframeJoint = g_AnimInfo.baseframeJoints[i];
+		const JointInfo &jointInfo = g_AnimInfo.jointsInfo[i];
+
+
+		// Start with the default settings from basejoint
+		frameJoint.position = baseframeJoint.position;
+		frameJoint.orientation = baseframeJoint.orientation;
+		frameJoint.name = jointInfo.name;
+		frameJoint.parentIndex = jointInfo.parent;
+
+		// Start replacing with specific frame data
+		int flags = jointInfo.flags;
+		int offset = jointInfo.startIndex;
+
+		if(flags & (1 << 0)) {
+			frameJoint.position.x = frameData[offset++];
+		}
+		if(flags & (1 << 1)) {
+			frameJoint.position.y = frameData[offset++];
+		}
+		if(flags & (1 << 2)) {
+			frameJoint.position.z = frameData[offset++];
+		}
+		if(flags & (1 << 3)) {
+			frameJoint.orientation.x = frameData[offset++];
+		}
+		if(flags & (1 << 4)) {
+			frameJoint.orientation.y = frameData[offset++];
+		}
+		if(flags & (1 << 5)) {
+			frameJoint.orientation.z = frameData[offset++];
+		}
+
+		// Compute the w-component of the quaternion
+		float temp = 1 - frameJoint.orientation.x * frameJoint.orientation.x
+					   - frameJoint.orientation.y * frameJoint.orientation.y
+					   - frameJoint.orientation.z * frameJoint.orientation.z;
+		if(temp < 0) {
+			frameJoint.orientation.w = 0;
+		} else {
+			frameJoint.orientation.w = -1 * sqrtf(temp);
+		}
+
+		// Convert this point to model space
+		
+
+		if(jointInfo.parent > -1) {
+			// We'll cheat for now. We can replace this later.
+			const FrameJoint &parent = frameSkeleton[frameJoint.parentIndex];
+
+			vec3 rotPos = parent.orientation * frameJoint.position;
+			frameJoint.position.x = rotPos.x + parent.position.x;
+			frameJoint.position.y = rotPos.y + parent.position.y;
+			frameJoint.position.z = rotPos.z + parent.position.z;
+
+			frameJoint.orientation = parent.orientation * frameJoint.orientation;
+			glm::normalize(frameJoint.orientation);
+		}
+
+		frameSkeleton.push_back(frameJoint);
+	}
 }
 
 void setUpModel() {
@@ -211,39 +264,12 @@ void setUpModel() {
 	vector<GLfloat> vertices;
 	vector<GLfloat> colors;
 
-	for(int i = 0; i < g_AnimInfo.baseframeJoints.size(); ++i) {
-		/*Joint &joint = g_AnimInfo.joints[i];
-		GLfloat x = joint.position.x;
-		GLfloat y = joint.position.y;
-		GLfloat z = joint.position.z;*/
+	for(int i = 0; i < frameSkeleton.size(); ++i) {
+		const FrameJoint &joint = frameSkeleton[i];
 
-		BaseframeJoint &joint = g_AnimInfo.baseframeJoints[i];
-		JointInfo &info = g_AnimInfo.jointsInfo[i];
-
-		glm::mat4 rotM = glm::mat4_cast(joint.orientation);
-		glm::mat4 transM = glm::translate(mat4(1.0f), joint.position);
-
-		mat4 toParentM = transM * rotM;
-
-		if(i == 0) {
-			joint.jointToWorld = toParentM;
-		} else {
-			const BaseframeJoint &parent = g_AnimInfo.baseframeJoints[info.parent];
-			joint.jointToWorld = parent.jointToWorld * toParentM;
-		}
-
-		glm::vec4 translation = joint.jointToWorld[3];
-		glm::quat rot = glm::quat_cast(joint.jointToWorld);
-
-		cout << info.name << " " << translation << " [(" << rot.w << " (" << rot.x << ", " << rot.y << ", " << rot.z << ")]" << endl;
-
-		GLfloat x = translation.x;
-		GLfloat y = translation.y;
-		GLfloat z = translation.z;
-
-		vertices.push_back(x);
-		vertices.push_back(y);
-		vertices.push_back(z);
+		vertices.push_back(joint.position.x);
+		vertices.push_back(joint.position.y);
+		vertices.push_back(joint.position.z);
 
 		colors.push_back(1.0f);
 		colors.push_back(0.0f);
@@ -291,6 +317,7 @@ void setUpModel() {
 	glBindVertexArray(0);
 }
 
+/*
 void setUpSkeletonRendering() {
 	vector<GLfloat> vertexData;
 	numBonesToDraw = 0;
@@ -307,9 +334,9 @@ void setUpSkeletonRendering() {
 			// Start joint
 			mat4 modelM = computeJointToWorld(i);
 			
-			/*vertexData.push_back(joint.position.x);
-			vertexData.push_back(joint.position.y);
-			vertexData.push_back(joint.position.z);*/
+			//vertexData.push_back(joint.position.x);
+			//vertexData.push_back(joint.position.y);
+			//vertexData.push_back(joint.position.z);
 			
 			vertexData.push_back(model[3][0]);
 			vertexData.push_back(model[3][1]);
@@ -338,8 +365,6 @@ void setUpSkeletonRendering() {
 		}
 	}
 
-	cout << "Going to render " << numBonesToDraw << " bones" << endl;
-
 	glGenBuffers(1, &hSkeletonBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), &vertexData[0], GL_STATIC_DRAW);
@@ -358,7 +383,7 @@ void setUpSkeletonRendering() {
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
+}*/
 
 void setUpCamera() {
 	// Set up the camera to frame the model. 
@@ -371,7 +396,7 @@ void setUpCamera() {
 	float radians = half_fov * 3.1459895f / 180.0f;
 	float z = totalLen / tan(radians);
 	
-	cout << "Moving the camera to: " << z << endl;
+	//cout << "Moving the camera to: " << z << endl;
 	//view = glm::translate(mat4(), vec3(0, 0, -z));
 	view = glm::translate(mat4(), vec3(0, -20, -120));
 	
@@ -438,13 +463,14 @@ int main(int argc, char **argv) {
 		cout << "Unable to build the shader program." << endl;
 		return -1;
 	}
+	createFrameSkeleton();
 	setUpModel();
 	//setUpSkeletonRendering();
 	setUpCamera();
 
 	glutDisplayFunc(render);
 	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
-	//glutMainLoop();
+	glutMainLoop();
 
 	return 0;
 }
