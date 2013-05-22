@@ -192,7 +192,7 @@ ostream &operator<<(ostream &out, const vec4 &v) {
 
 void createFrameSkeleton() {
 	const int kNumJoints = g_AnimInfo.baseframeJoints.size();
-	const vector<float> frameData = g_AnimInfo.framesData[0]; // Render frame 0
+	const vector<float> frameData = g_AnimInfo.framesData[75]; // Render frame 0
 
 	for(int i = 0; i < kNumJoints; ++i) {
 		FrameJoint frameJoint;
@@ -240,10 +240,7 @@ void createFrameSkeleton() {
 		}
 
 		// Convert this point to model space
-		
-
-		if(jointInfo.parent > -1) {
-			// We'll cheat for now. We can replace this later.
+		if(jointInfo.parent > -1) {			
 			const FrameJoint &parent = frameSkeleton[frameJoint.parentIndex];
 
 			vec3 rotPos = parent.orientation * frameJoint.position;
