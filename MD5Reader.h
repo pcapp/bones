@@ -22,6 +22,7 @@ struct MD5_AnimInfo {
 	std::vector<BaseframeJoint> baseframeJoints;
 	std::vector<JointInfo> jointsInfo;
 	std::vector<std::vector<float>> framesData;
+	int numFrames;
 
 	// temp
 	std::vector<Joint> joints;

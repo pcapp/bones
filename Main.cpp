@@ -58,6 +58,9 @@ GLuint numBonesToDraw;
 
 Bounds bounds;
 
+int curFrame = 75;
+int elapsedTime = 0;
+
 const int kTimerPeriod = 50;
 const float kFovY = 45.0f;
 
@@ -68,7 +71,7 @@ struct FrameJoint {
 	int parentIndex;
 };
 
-vector<FrameJoint> frameSkeleton;
+vector<vector<FrameJoint>> frameSkeletons;
 
 bool buildShader(GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
@@ -190,69 +193,75 @@ ostream &operator<<(ostream &out, const vec4 &v) {
 	return out;
 }
 
-void createFrameSkeleton() {
+void createFrameSkeletons() {
 	const int kNumJoints = g_AnimInfo.baseframeJoints.size();
-	const vector<float> frameData = g_AnimInfo.framesData[75]; // Render frame 0
+	
+	for(int i = 0; i < g_AnimInfo.numFrames; ++i) {
+		vector<float> frameData = g_AnimInfo.framesData[i]; // Render frame 0
+		vector<FrameJoint> frameSkeleton;
 
-	for(int i = 0; i < kNumJoints; ++i) {
-		FrameJoint frameJoint;
-		const BaseframeJoint &baseframeJoint = g_AnimInfo.baseframeJoints[i];
-		const JointInfo &jointInfo = g_AnimInfo.jointsInfo[i];
+		for(int i = 0; i < kNumJoints; ++i) {
+			FrameJoint frameJoint;
+			const BaseframeJoint &baseframeJoint = g_AnimInfo.baseframeJoints[i];
+			const JointInfo &jointInfo = g_AnimInfo.jointsInfo[i];
 
 
-		// Start with the default settings from basejoint
-		frameJoint.position = baseframeJoint.position;
-		frameJoint.orientation = baseframeJoint.orientation;
-		frameJoint.name = jointInfo.name;
-		frameJoint.parentIndex = jointInfo.parent;
+			// Start with the default settings from basejoint
+			frameJoint.position = baseframeJoint.position;
+			frameJoint.orientation = baseframeJoint.orientation;
+			frameJoint.name = jointInfo.name;
+			frameJoint.parentIndex = jointInfo.parent;
 
-		// Start replacing with specific frame data
-		int flags = jointInfo.flags;
-		int offset = jointInfo.startIndex;
+			// Start replacing with specific frame data
+			int flags = jointInfo.flags;
+			int offset = jointInfo.startIndex;
 
-		if(flags & (1 << 0)) {
-			frameJoint.position.x = frameData[offset++];
+			if(flags & (1 << 0)) {
+				frameJoint.position.x = frameData[offset++];
+			}
+			if(flags & (1 << 1)) {
+				frameJoint.position.y = frameData[offset++];
+			}
+			if(flags & (1 << 2)) {
+				frameJoint.position.z = frameData[offset++];
+			}
+			if(flags & (1 << 3)) {
+				frameJoint.orientation.x = frameData[offset++];
+			}
+			if(flags & (1 << 4)) {
+				frameJoint.orientation.y = frameData[offset++];
+			}
+			if(flags & (1 << 5)) {
+				frameJoint.orientation.z = frameData[offset++];
+			}
+
+			// Compute the w-component of the quaternion
+			float temp = 1 - frameJoint.orientation.x * frameJoint.orientation.x
+						   - frameJoint.orientation.y * frameJoint.orientation.y
+						   - frameJoint.orientation.z * frameJoint.orientation.z;
+			if(temp < 0) {
+				frameJoint.orientation.w = 0;
+			} else {
+				frameJoint.orientation.w = -1 * sqrtf(temp);
+			}
+
+			// Convert this point to model space
+			if(jointInfo.parent > -1) {			
+				const FrameJoint &parent = frameSkeleton[frameJoint.parentIndex];
+
+				vec3 rotPos = parent.orientation * frameJoint.position;
+				frameJoint.position.x = rotPos.x + parent.position.x;
+				frameJoint.position.y = rotPos.y + parent.position.y;
+				frameJoint.position.z = rotPos.z + parent.position.z;
+
+				frameJoint.orientation = parent.orientation * frameJoint.orientation;
+				glm::normalize(frameJoint.orientation);
+			}
+
+			frameSkeleton.push_back(frameJoint);
 		}
-		if(flags & (1 << 1)) {
-			frameJoint.position.y = frameData[offset++];
-		}
-		if(flags & (1 << 2)) {
-			frameJoint.position.z = frameData[offset++];
-		}
-		if(flags & (1 << 3)) {
-			frameJoint.orientation.x = frameData[offset++];
-		}
-		if(flags & (1 << 4)) {
-			frameJoint.orientation.y = frameData[offset++];
-		}
-		if(flags & (1 << 5)) {
-			frameJoint.orientation.z = frameData[offset++];
-		}
 
-		// Compute the w-component of the quaternion
-		float temp = 1 - frameJoint.orientation.x * frameJoint.orientation.x
-					   - frameJoint.orientation.y * frameJoint.orientation.y
-					   - frameJoint.orientation.z * frameJoint.orientation.z;
-		if(temp < 0) {
-			frameJoint.orientation.w = 0;
-		} else {
-			frameJoint.orientation.w = -1 * sqrtf(temp);
-		}
-
-		// Convert this point to model space
-		if(jointInfo.parent > -1) {			
-			const FrameJoint &parent = frameSkeleton[frameJoint.parentIndex];
-
-			vec3 rotPos = parent.orientation * frameJoint.position;
-			frameJoint.position.x = rotPos.x + parent.position.x;
-			frameJoint.position.y = rotPos.y + parent.position.y;
-			frameJoint.position.z = rotPos.z + parent.position.z;
-
-			frameJoint.orientation = parent.orientation * frameJoint.orientation;
-			glm::normalize(frameJoint.orientation);
-		}
-
-		frameSkeleton.push_back(frameJoint);
+		frameSkeletons.push_back(frameSkeleton);
 	}
 }
 
@@ -260,6 +269,8 @@ void setUpModel() {
 	float zPos = 0.0f;
 	vector<GLfloat> vertices;
 	vector<GLfloat> colors;
+
+	vector<FrameJoint> frameSkeleton = frameSkeletons[curFrame];
 
 	for(int i = 0; i < frameSkeleton.size(); ++i) {
 		const FrameJoint &joint = frameSkeleton[i];
@@ -317,6 +328,8 @@ void setUpModel() {
 void setUpSkeletonRendering() {
 	vector<GLfloat> vertexData;
 	numBonesToDraw = 0;
+
+	vector<FrameJoint> frameSkeleton = frameSkeletons[curFrame];
 
 	for(int i = 0; i < frameSkeleton.size(); ++i) {
 		FrameJoint &joint = frameSkeleton[i];
@@ -443,7 +456,8 @@ int main(int argc, char **argv) {
 		cout << "Unable to build the shader program." << endl;
 		return -1;
 	}
-	createFrameSkeleton();
+
+	createFrameSkeletons();
 	setUpModel();
 	setUpSkeletonRendering();
 	setUpCamera();
