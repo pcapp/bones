@@ -58,8 +58,11 @@ GLuint numBonesToDraw;
 
 Bounds bounds;
 
+bool frameChanged = true;
 int curFrame = 75;
 int elapsedTime = 0;
+	GLuint hVerticesBuffer;
+	GLuint hColorsBuffer;
 
 const int kTimerPeriod = 50;
 const float kFovY = 45.0f;
@@ -288,9 +291,6 @@ void setUpModel() {
 	CalculateBounds(&vertices[0], vertices.size(), bounds);
 
 	// Set up the vertex buffer object
-	GLuint hVerticesBuffer;
-	GLuint hColorsBuffer;
-
 	glGenBuffers(1, &hVerticesBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, hVerticesBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &vertices[0], GL_STATIC_DRAW);
@@ -378,6 +378,69 @@ void setUpSkeletonRendering() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+void updateJointData() {
+	vector<GLfloat> vertices;
+	vector<GLfloat> colors;
+
+	vector<FrameJoint> frameSkeleton = frameSkeletons[curFrame];
+
+	for(int i = 0; i < frameSkeleton.size(); ++i) {
+		const FrameJoint &joint = frameSkeleton[i];
+
+		vertices.push_back(joint.position.x);
+		vertices.push_back(joint.position.y);
+		vertices.push_back(joint.position.z);
+
+		colors.push_back(1.0f);
+		colors.push_back(0.0f);
+		colors.push_back(0.0f);
+		colors.push_back(1.0f);
+	}
+	
+	glBindBuffer(GL_ARRAY_BUFFER, hVerticesBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &vertices[0], GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, hColorsBuffer);
+	glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &colors[0], GL_STATIC_DRAW);
+}
+
+void updateSkeletonData() {
+	vector<GLfloat> vertexData;
+	numBonesToDraw = 0;
+
+	vector<FrameJoint> frameSkeleton = frameSkeletons[curFrame];
+
+	for(int i = 0; i < frameSkeleton.size(); ++i) {
+		FrameJoint &joint = frameSkeleton[i];
+
+		if(joint.parentIndex > -1) {
+			FrameJoint &parentJoint = frameSkeleton[joint.parentIndex];
+
+			vertexData.push_back(joint.position.x);
+			vertexData.push_back(joint.position.y);
+			vertexData.push_back(joint.position.z);
+			vertexData.push_back(0.0f); // R
+			vertexData.push_back(1.0f); // G
+			vertexData.push_back(0.0f); // B
+			vertexData.push_back(1.0f); // A
+
+			// End joint			
+			vertexData.push_back(parentJoint.position.x);
+			vertexData.push_back(parentJoint.position.y);
+			vertexData.push_back(parentJoint.position.z);
+			vertexData.push_back(0.0f); // R
+			vertexData.push_back(1.0f); // G
+			vertexData.push_back(0.0f); // B
+			vertexData.push_back(1.0f); // A
+
+			++numBonesToDraw;
+		}
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), &vertexData[0], GL_STATIC_DRAW);
+}
+
 void setUpCamera() {
 	// Set up the camera to frame the model. 
 	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
@@ -403,6 +466,12 @@ void render() {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	if(frameChanged) {
+		updateJointData();
+		updateSkeletonData();
+		frameChanged = false;
+	}
+
 	glUseProgram(hProgram);
 	MVP = projection * view * model;
 	GLint location = glGetUniformLocation(hProgram, "MVP");
@@ -422,7 +491,18 @@ void render() {
 
 void onTimerTick(int value) {
 	yRotation += 5.0f;
-	model = glm::rotate(mat4(), yRotation, vec3(0, 1, 0));
+	//model = glm::rotate(mat4(), yRotation, vec3(0, 1, 0)); 
+	//model = glm::rotate(model, -90.0f, vec3(1, 0, 0));
+	model = glm::rotate(mat4(), -90.0f, vec3(1, 0, 0));
+	
+	elapsedTime += kTimerPeriod;
+	int temp = (elapsedTime / 24) % 140;
+	
+	if(temp != curFrame) {
+		curFrame = temp;
+		//cout << "Frame: " << curFrame << endl;
+		frameChanged = true;
+	}
 
 	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
 	glutPostRedisplay();
@@ -463,7 +543,7 @@ int main(int argc, char **argv) {
 	setUpCamera();
 
 	glutDisplayFunc(render);
-	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
 	glutMainLoop();
 
 	return 0;
