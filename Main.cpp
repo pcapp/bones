@@ -314,45 +314,28 @@ void setUpModel() {
 	glBindVertexArray(0);
 }
 
-/*
 void setUpSkeletonRendering() {
 	vector<GLfloat> vertexData;
 	numBonesToDraw = 0;
 
-	for(int i = 0; i < g_AnimInfo.baseframeJoints.size(); ++i) {
-		const BaseframeJoint &joint = g_AnimInfo.baseframeJoints[i];
-		const JointInfo &info = g_AnimInfo.jointsInfo[i];
+	for(int i = 0; i < frameSkeleton.size(); ++i) {
+		FrameJoint &joint = frameSkeleton[i];
 
-		if(info.parent != -1) {
-			const BaseframeJoint &parentJoint = g_AnimInfo.baseframeJoints[info.parent];
-			const JointInfo &parentInfo = g_AnimInfo.jointsInfo[info.parent];
-			cout << info.name << " to " << parentInfo.name << endl;
-			
-			// Start joint
-			mat4 modelM = computeJointToWorld(i);
-			
-			//vertexData.push_back(joint.position.x);
-			//vertexData.push_back(joint.position.y);
-			//vertexData.push_back(joint.position.z);
-			
-			vertexData.push_back(model[3][0]);
-			vertexData.push_back(model[3][1]);
-			vertexData.push_back(model[3][2]);
+		if(joint.parentIndex > -1) {
+			FrameJoint &parentJoint = frameSkeleton[joint.parentIndex];
+
+			vertexData.push_back(joint.position.x);
+			vertexData.push_back(joint.position.y);
+			vertexData.push_back(joint.position.z);
 			vertexData.push_back(0.0f); // R
 			vertexData.push_back(1.0f); // G
 			vertexData.push_back(0.0f); // B
 			vertexData.push_back(1.0f); // A
 
-			// End joint
-			modelM = computeJointToWorld(info.parent);
-			
-			//vertexData.push_back(parentJoint.position.x);
-			//vertexData.push_back(parentJoint.position.y);
-			//vertexData.push_back(parentJoint.position.z);
-			vertexData.push_back(model[3][0]);
-			vertexData.push_back(model[3][1]);
-			vertexData.push_back(model[3][2]);
-
+			// End joint			
+			vertexData.push_back(parentJoint.position.x);
+			vertexData.push_back(parentJoint.position.y);
+			vertexData.push_back(parentJoint.position.z);
 			vertexData.push_back(0.0f); // R
 			vertexData.push_back(1.0f); // G
 			vertexData.push_back(0.0f); // B
@@ -380,7 +363,7 @@ void setUpSkeletonRendering() {
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}*/
+}
 
 void setUpCamera() {
 	// Set up the camera to frame the model. 
@@ -416,10 +399,10 @@ void render() {
 	glDrawElements(GL_POINTS, g_AnimInfo.baseframeJoints.size(), GL_UNSIGNED_SHORT, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	/*glBindVertexArray(hSkeletonVAO);
+	glBindVertexArray(hSkeletonVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
 	glDrawArrays(GL_LINES, 0, numBonesToDraw * 2);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);*/
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glutSwapBuffers();
 }
@@ -462,7 +445,7 @@ int main(int argc, char **argv) {
 	}
 	createFrameSkeleton();
 	setUpModel();
-	//setUpSkeletonRendering();
+	setUpSkeletonRendering();
 	setUpCamera();
 
 	glutDisplayFunc(render);
