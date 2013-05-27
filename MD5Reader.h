@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 #include "AnimCore.h"
+#include "MD5_MeshReader.h"
 
 struct JointInfo {
 	std::string name;
@@ -18,18 +19,12 @@ struct BaseframeJoint {
 	glm::mat4 jointToWorld;
 };
 
-struct MD5_MeshInfo {
-
-};
 
 struct MD5_AnimInfo {
 	std::vector<BaseframeJoint> baseframeJoints;
 	std::vector<JointInfo> jointsInfo;
 	std::vector<std::vector<float>> framesData;
 	int numFrames;
-
-	// temp
-	std::vector<Joint> joints;
 };
 
 struct MD5_VO {
@@ -41,15 +36,6 @@ class Md5Reader {
 public:
 	MD5_VO parse(const std::string &meshFilename, const std::string &animFilename);
 private:
-	void processVersion();
-	void processCommandLine();
-	void processJointsAndMeshCounts();
-	void processJoints();
-	void buildJoint(const std::string &line, int count);
-	glm::mat4 getChildToParentMatrix(const Joint &joint);
-	void computeJointToWorld(Joint &joint);
-	void computeWComponent(Joint &joint);
-
 	void processAnimHeader();
 	void processHierarchy();
 	void processBounds();
@@ -61,9 +47,8 @@ private:
 	std::vector<JointInfo> mJointsInfo;
 	std::vector<BaseframeJoint> mBaseframeJoints;
 	std::vector<std::vector<float>> mFramesData;
-	std::ifstream mMeshFile;
+	
 	std::ifstream mAnimFile;
-	std::vector<Joint> mJoints;
 };
 
 #endif
