@@ -188,8 +188,9 @@ void Md5Reader::buildJoint(const string &line, int count) {
 	mJoints[count] = j;	
 }
 
-MD5_AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFilename) {
-	MD5_AnimInfo info;
+MD5_VO Md5Reader::parse(const string &meshFilename, const string &animFilename) {
+	MD5_VO vo;
+	MD5_AnimInfo anim;
 
 	mMeshFile.open(meshFilename);
 
@@ -215,15 +216,17 @@ MD5_AnimInfo Md5Reader::parse(const string &meshFilename, const string &animFile
 	processBaseframeJoints();
 	processFramesData();
 	
-	info.baseframeJoints = mBaseframeJoints;
-	info.jointsInfo = mJointsInfo;
-	info.framesData = mFramesData;
-	info.numFrames = mNumFrames;
+	anim.baseframeJoints = mBaseframeJoints;
+	anim.jointsInfo = mJointsInfo;
+	anim.framesData = mFramesData;
+	anim.numFrames = mNumFrames;
 
 	// temp
-	info.joints = mJoints;
+	anim.joints = mJoints;
 
-	return info;
+	vo.animations.push_back(anim);
+
+	return vo;
 }
 
 void Md5Reader::processAnimHeader() {

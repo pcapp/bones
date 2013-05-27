@@ -514,7 +514,9 @@ int main(int argc, char **argv) {
 	const string animFilename("Boblamp/boblampclean.md5anim");
 
 	try {
-		g_AnimInfo = reader.parse(meshFilename, animFilename);
+		 MD5_VO vo = reader.parse(meshFilename, animFilename);
+		 // Temporary
+		 g_AnimInfo = vo.animations[0];
 	}
 	catch(exception &e) {
 		cout << e.what() << endl;

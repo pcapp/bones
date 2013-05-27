@@ -18,6 +18,10 @@ struct BaseframeJoint {
 	glm::mat4 jointToWorld;
 };
 
+struct MD5_MeshInfo {
+
+};
+
 struct MD5_AnimInfo {
 	std::vector<BaseframeJoint> baseframeJoints;
 	std::vector<JointInfo> jointsInfo;
@@ -28,9 +32,14 @@ struct MD5_AnimInfo {
 	std::vector<Joint> joints;
 };
 
+struct MD5_VO {
+	MD5_MeshInfo mesh;
+	std::vector<MD5_AnimInfo> animations;
+};
+
 class Md5Reader {
 public:
-	MD5_AnimInfo parse(const std::string &meshFilename, const std::string &animFilename);
+	MD5_VO parse(const std::string &meshFilename, const std::string &animFilename);
 private:
 	void processVersion();
 	void processCommandLine();
