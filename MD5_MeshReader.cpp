@@ -1,5 +1,6 @@
 #include "MD5_MeshReader.h"
 
+#include <iostream>
 #include <fstream>
 #include <stdexcept>
 #include <string>
@@ -27,6 +28,7 @@ MD5_MeshInfo MD5_MeshReader::parse(const std::string &filename) {
 	processCommandLine();
 	processJointsAndMeshCounts();
 	processJoints();
+	processMeshes();
 
 	mMeshFile.close();
 
@@ -96,6 +98,8 @@ void MD5_MeshReader::processJointsAndMeshCounts() {
 	tokens >> numMeshes;
 }
 
+
+
 void MD5_MeshReader::processJoints() {
 	string line;
 
@@ -117,6 +121,38 @@ void MD5_MeshReader::processJoints() {
 	while(mMeshFile.good() && line != "}") {
 		buildJoint(line, count++);
 		getline(mMeshFile, line);		
+	}
+}
+
+void MD5_MeshReader::processMeshes() {
+	string line;
+
+	// The rest of the file should be mesh section.
+	while(mMeshFile) {
+		do {
+			getline(mMeshFile, line);
+		} while(mMeshFile && line == "");
+
+		if(!mMeshFile) {
+			// We hit the end of the file.
+			return;
+		}
+
+		stringstream tokens(line);
+		string type;
+
+		tokens >> type;
+	
+		if(type != "mesh") {
+			throw runtime_error("Expected a mesh block.");
+		}
+
+		std::cout << "Reading a mesh block." << std::endl;
+		getline(mMeshFile, line); // Advance to the next line
+		while(mMeshFile.good() && line != "}") {
+		
+			getline(mMeshFile, line);		
+		}
 	}
 }
 

@@ -23,6 +23,8 @@ private:
 	void processCommandLine();
 	void processJointsAndMeshCounts();
 	void processJoints();
+	void processMeshes();
+
 	void buildJoint(const std::string &line, int count);
 	glm::mat4 getChildToParentMatrix(const Joint &joint);
 	void computeJointToWorld(Joint &joint);
