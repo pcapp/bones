@@ -15,6 +15,9 @@ using std::string;
 using std::stringstream;
 using std::getline;
 
+using std::cout;
+using std::endl;
+
 MD5_MeshInfo MD5_MeshReader::parse(const std::string &filename) {
 	mMeshFile.open(filename);
 
@@ -138,21 +141,114 @@ void MD5_MeshReader::processMeshes() {
 			return;
 		}
 
+		cout << "line = " << line << endl;
 		stringstream tokens(line);
-		string type;
+		string fieldName;
 
-		tokens >> type;
+		tokens >> fieldName;
 	
-		if(type != "mesh") {
+		if(fieldName != "mesh") {
 			throw runtime_error("Expected a mesh block.");
 		}
 
-		std::cout << "Reading a mesh block." << std::endl;
-		getline(mMeshFile, line); // Advance to the next line
-		while(mMeshFile.good() && line != "}") {
-		
-			getline(mMeshFile, line);		
+		processMesh();
+	}
+}
+
+std::ostream &operator<<(std::ostream &out, const MD5_Vertex &vertex) {
+	out << vertex.u << ", " << vertex.v;
+	out << " " << vertex.startWeight << " ";
+	out << vertex.weightCount;
+	return out;
+}
+
+void MD5_MeshReader::processMesh() {
+	string line;
+	string fieldName;
+	stringstream tokens;
+	string junk;
+
+	getline(mMeshFile, line); // Advance to the next line
+	tokens.str(line);
+	
+	tokens >> fieldName;
+
+	if(fieldName != "shader") {
+		cout << "No shader in mesh. Do something." << endl;
+	}
+
+	string filename;
+	tokens >> filename;
+	cout << "TODO Read and process " << filename << endl;
+
+
+	// Eat spaces
+	do {
+		getline(mMeshFile, line);
+	} while(mMeshFile && line == "");
+
+	tokens.clear();
+	tokens.str(line);
+	tokens >> fieldName;
+	int numVerts;
+
+	if(fieldName != "numverts") {
+		cout << "numverts must be next. Do something." << endl;
+		return;
+	}
+
+	int count = 0;
+	// Read the verts
+	while(mMeshFile) {
+		if(line != "") {
+			
+			tokens.clear();
+			tokens.str(line);
+			tokens >> fieldName;
+
+			if(fieldName == "numtris") {
+				break;
+			}
 		}
+		
+		getline(mMeshFile, line);
+		count++;
+	}
+
+	// Read the tris
+	count = 0;
+	while(mMeshFile) {
+
+		if(line != "") {
+			tokens.clear();
+			tokens.str(line);
+			tokens >> fieldName;
+
+			if(fieldName == "numweights") {
+				break;
+			}
+		}
+
+		getline(mMeshFile, line);		
+		count++;
+	}
+	
+	// Read the weights
+	count = 0;
+	while(mMeshFile) {
+		if(line != "") {
+			tokens.clear();
+			tokens.str(line);
+			tokens >> fieldName;
+			
+			if(fieldName == "}") {
+				cout << "Hit the end of the mesh section" << endl;
+				break;
+			}
+		}
+		
+		getline(mMeshFile, line);
+		count++;
 	}
 }
 

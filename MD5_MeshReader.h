@@ -7,12 +7,29 @@
 #include <string>
 #include <vector>
 
-struct MD5_Mesh {
+struct MD5_Vertex {
+	float u;
+	float v;
+	int startWeight;
+	int weightCount;
+};
+
+struct MD5_Triangle {
+	unsigned int indices[3];
+};
+
+struct MD5_Weight {
 
 };
 
 struct MD5_MeshInfo {
 	std::vector<Joint> joints;
+};
+
+struct MD5_Mesh {
+	std::vector<MD5_Vertex> vertices;
+	std::vector<MD5_Triangle> triangles;
+	std::vector<MD5_Weight> weights;
 };
 
 class MD5_MeshReader {
@@ -24,6 +41,7 @@ private:
 	void processJointsAndMeshCounts();
 	void processJoints();
 	void processMeshes();
+	void processMesh();
 
 	void buildJoint(const std::string &line, int count);
 	glm::mat4 getChildToParentMatrix(const Joint &joint);
@@ -32,6 +50,7 @@ private:
 private:
 	std::ifstream mMeshFile;
 	std::vector<Joint> mJoints;
+	std::vector<MD5_Vertex> mVertices;
 };
 
 #endif
