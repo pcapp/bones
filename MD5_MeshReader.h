@@ -19,7 +19,9 @@ struct MD5_Triangle {
 };
 
 struct MD5_Weight {
-
+	int jointIndex;
+	float weightBias;
+	glm::vec3 position;
 };
 
 struct MD5_MeshInfo {
@@ -50,7 +52,9 @@ private:
 private:
 	std::ifstream mMeshFile;
 	std::vector<Joint> mJoints;
-	std::vector<MD5_Vertex> mVertices;
+
+	MD5_Mesh mCurMesh;
+	std::vector<MD5_Mesh> mMeshes;
 };
 
 #endif

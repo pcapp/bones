@@ -18,6 +18,11 @@ using std::getline;
 using std::cout;
 using std::endl;
 
+// Prototypes -- convenience functions.
+std::ostream &operator<<(std::ostream &, const MD5_Vertex &);
+std::ostream &operator<<(std::ostream &, const MD5_Triangle &);
+std::ostream &operator<<(std::ostream &, const MD5_Weight &);
+
 MD5_MeshInfo MD5_MeshReader::parse(const std::string &filename) {
 	mMeshFile.open(filename);
 
@@ -141,7 +146,6 @@ void MD5_MeshReader::processMeshes() {
 			return;
 		}
 
-		cout << "line = " << line << endl;
 		stringstream tokens(line);
 		string fieldName;
 
@@ -155,18 +159,15 @@ void MD5_MeshReader::processMeshes() {
 	}
 }
 
-std::ostream &operator<<(std::ostream &out, const MD5_Vertex &vertex) {
-	out << vertex.u << ", " << vertex.v;
-	out << " " << vertex.startWeight << " ";
-	out << vertex.weightCount;
-	return out;
-}
-
 void MD5_MeshReader::processMesh() {
 	string line;
 	string fieldName;
 	stringstream tokens;
 	string junk;
+
+	mCurMesh.vertices.clear();
+	mCurMesh.triangles.clear();
+	mCurMesh.weights.clear();
 
 	getline(mMeshFile, line); // Advance to the next line
 	tokens.str(line);
@@ -179,7 +180,7 @@ void MD5_MeshReader::processMesh() {
 
 	string filename;
 	tokens >> filename;
-	cout << "TODO Read and process " << filename << endl;
+	//cout << "TODO Read and process " << filename << endl;
 
 
 	// Eat spaces
@@ -192,16 +193,18 @@ void MD5_MeshReader::processMesh() {
 	tokens >> fieldName;
 	int numVerts;
 
+
 	if(fieldName != "numverts") {
 		cout << "numverts must be next. Do something." << endl;
 		return;
 	}
 
-	int count = 0;
+	tokens >> numVerts;
+	mCurMesh.vertices.resize(numVerts);
+
 	// Read the verts
 	while(mMeshFile) {
-		if(line != "") {
-			
+		if(line != "") {			
 			tokens.clear();
 			tokens.str(line);
 			tokens >> fieldName;
@@ -209,16 +212,29 @@ void MD5_MeshReader::processMesh() {
 			if(fieldName == "numtris") {
 				break;
 			}
+			if(fieldName == "vert") {
+				MD5_Vertex vertex;
+				int index;
+				tokens >> index;
+				tokens >> junk;
+				tokens >> vertex.u;
+				tokens >> vertex.v;
+				tokens >> junk;
+				tokens >> vertex.startWeight;
+				tokens >> vertex.weightCount;
+				mCurMesh.vertices[index] = vertex;
+			}			
 		}
 		
 		getline(mMeshFile, line);
-		count++;
 	}
 
+	int numTris;
+	tokens >> numTris;
+	mCurMesh.triangles.resize(numTris);
+	
 	// Read the tris
-	count = 0;
 	while(mMeshFile) {
-
 		if(line != "") {
 			tokens.clear();
 			tokens.str(line);
@@ -227,14 +243,26 @@ void MD5_MeshReader::processMesh() {
 			if(fieldName == "numweights") {
 				break;
 			}
+			if(fieldName == "tri") {
+				int index;
+				MD5_Triangle tri;
+				tokens >> index;
+				tokens >> tri.indices[0];
+				tokens >> tri.indices[1];
+				tokens >> tri.indices[2];
+
+				mCurMesh.triangles[index] = tri;
+			}			
 		}
 
 		getline(mMeshFile, line);		
-		count++;
 	}
 	
 	// Read the weights
-	count = 0;
+	int numWeights;
+	tokens >> numWeights;
+	mCurMesh.weights.resize(numWeights);
+
 	while(mMeshFile) {
 		if(line != "") {
 			tokens.clear();
@@ -242,13 +270,25 @@ void MD5_MeshReader::processMesh() {
 			tokens >> fieldName;
 			
 			if(fieldName == "}") {
-				cout << "Hit the end of the mesh section" << endl;
 				break;
 			}
+			if(fieldName == "weight") {
+				MD5_Weight weight;
+				int index;
+				tokens >> index;
+				tokens >> weight.jointIndex;
+				tokens >> weight.weightBias;
+				tokens >> junk;
+				tokens >> weight.position.x;
+				tokens >> weight.position.y;
+				tokens >> weight.position.z;
+				tokens >> junk;
+
+				mCurMesh.weights[index] = weight;
+			}			
 		}
 		
 		getline(mMeshFile, line);
-		count++;
 	}
 }
 
@@ -289,6 +329,29 @@ void MD5_MeshReader::computeWComponent(Joint &j) {
 	}
 
 	j.orientation.w = w;
+}
+
+std::ostream &operator<<(std::ostream &out, const MD5_Vertex &vertex) {
+	out << vertex.u << ", " << vertex.v;
+	out << " " << vertex.startWeight << " ";
+	out << vertex.weightCount;
+	return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const glm::vec3 &v) {
+	out << "<" << v.x << ", " << v.y << ", " << v.z << ">";
+	return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const MD5_Triangle &tri) {
+	out << "<" << tri.indices[0] << ", " << tri.indices[1] << ", " << tri.indices[2] << ">" << endl;
+	return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const MD5_Weight &weight) {
+	cout << "[jointIndex: " << weight.jointIndex << " bias: " << weight.weightBias << " pos: " << weight.position << "]";
+
+	return out;
 }
 
 std::ostream & operator<<(std::ostream &out, Joint &joint) {
