@@ -32,6 +32,7 @@ struct MD5_Mesh {
 	std::vector<MD5_Vertex> vertices;
 	std::vector<MD5_Triangle> triangles;
 	std::vector<MD5_Weight> weights;
+	std::string textureFilename;
 };
 
 class MD5_MeshReader {

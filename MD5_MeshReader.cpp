@@ -95,7 +95,6 @@ void MD5_MeshReader::processJointsAndMeshCounts() {
 		throw runtime_error("EOF reached and no mesh count found.");
 	}
 
-	
 	tokens.clear();
 	tokens.str(line);
 	
@@ -180,6 +179,7 @@ void MD5_MeshReader::processMesh() {
 
 	string filename;
 	tokens >> filename;
+	mCurMesh.textureFilename = filename;
 	//cout << "TODO Read and process " << filename << endl;
 
 

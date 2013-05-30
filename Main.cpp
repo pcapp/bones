@@ -38,7 +38,7 @@ struct Bounds {
 ////////////////////////
 MD5_AnimInfo g_AnimInfo;
 
-GLuint hProgram;
+GLuint hSimpleProgram;
 GLuint hVertShader;
 GLuint hFragShader;
 GLuint vao;
@@ -59,10 +59,10 @@ GLuint numBonesToDraw;
 Bounds bounds;
 
 bool frameChanged = true;
-int curFrame = 75;
+int curFrame = 0;
 int elapsedTime = 0;
-	GLuint hVerticesBuffer;
-	GLuint hColorsBuffer;
+GLuint hVerticesBuffer;
+GLuint hColorsBuffer;
 
 const int kTimerPeriod = 50;
 const float kFovY = 45.0f;
@@ -76,7 +76,11 @@ struct FrameJoint {
 
 vector<vector<FrameJoint>> frameSkeletons;
 
-bool buildShader(GLuint &hShader, const char *filename, GLuint shaderType) {
+GLuint hMeshVBO;
+GLuint hMeshVAO;
+GLuint hMeshProgram;
+
+bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
 
 	if(!in) {
@@ -122,31 +126,31 @@ bool buildShader(GLuint &hShader, const char *filename, GLuint shaderType) {
 }
 
 bool makeShaderProgram() {
-	hProgram = glCreateProgram();
+	hSimpleProgram = glCreateProgram();
 
-	if(!buildShader(hVertShader, "simple.vert", GL_VERTEX_SHADER)) {		
+	if(!buildShader(hSimpleProgram, hVertShader, "simple.vert", GL_VERTEX_SHADER)) {		
 		return false;
 	}
 
-	glBindAttribLocation(hProgram, 0, "VertexPosition");
-	glBindAttribLocation(hProgram, 1, "VertexRGBA");
+	glBindAttribLocation(hSimpleProgram, 0, "VertexPosition");
+	glBindAttribLocation(hSimpleProgram, 1, "VertexRGBA");
 
-	if(!buildShader(hFragShader, "simple.frag", GL_FRAGMENT_SHADER)) {
+	if(!buildShader(hSimpleProgram, hFragShader, "simple.frag", GL_FRAGMENT_SHADER)) {
 		return false;
 	}
 
 	GLint linkStatus;
-	glLinkProgram(hProgram);
-	glGetProgramiv(hProgram, GL_LINK_STATUS, &linkStatus);
+	glLinkProgram(hSimpleProgram);
+	glGetProgramiv(hSimpleProgram, GL_LINK_STATUS, &linkStatus);
 	if(GL_FALSE == linkStatus) {
 		cout << "Error linking the shader program." << endl;
 		GLint logLength;
-		glGetProgramiv(hProgram, GL_INFO_LOG_LENGTH, &logLength);
+		glGetProgramiv(hSimpleProgram, GL_INFO_LOG_LENGTH, &logLength);
 
 		if(logLength > 0) {
 			GLsizei bytesRead;
 			char *log = new char[logLength];
-			glGetProgramInfoLog(hProgram, logLength, &bytesRead, log);	
+			glGetProgramInfoLog(hSimpleProgram, logLength, &bytesRead, log);	
 			cout << log << endl;	
 			delete []log;
 		}
@@ -441,6 +445,51 @@ void updateSkeletonData() {
 	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), &vertexData[0], GL_STATIC_DRAW);
 }
 
+void setUpMeshRendering() {
+
+}
+
+void setUpMeshShader() {
+	hMeshProgram = glCreateProgram();
+
+	if(GL_FALSE == hMeshProgram) {
+		cout << "Could not create a shader program handle." << endl;
+		return;
+	}
+
+	GLuint hVertShader;
+	GLuint hFragShader;
+
+	if(!buildShader(hMeshProgram, hVertShader, "mesh.vert", GL_VERTEX_SHADER)) {
+		cout << "Could not build mesh.vert." << endl;
+		return;
+	}
+
+	glBindAttribLocation(hMeshProgram, 0, "VertexPosition");
+
+	if(!buildShader(hMeshProgram, hFragShader, "mesh.frag", GL_FRAGMENT_SHADER)) {
+		cout << "Could not compile mesh.frag" << endl;
+		return;
+	}
+
+	GLint linkStatus;
+	glLinkProgram(hMeshProgram);
+	glGetProgramiv(hMeshProgram, GL_LINK_STATUS, &linkStatus);
+	if(GL_FALSE == linkStatus) {
+		cout << "Error linking the mesh shader program." << endl;
+		GLint logLength;
+		glGetProgramiv(hMeshProgram, GL_INFO_LOG_LENGTH, &logLength);
+
+		if(logLength > 0) {
+			GLsizei bytesRead;
+			char *log = new char[logLength];
+			glGetProgramInfoLog(hMeshProgram, logLength, &bytesRead, log);	
+			cout << log << endl;	
+			delete []log;
+		}
+	}
+}
+
 void setUpCamera() {
 	// Set up the camera to frame the model. 
 	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
@@ -472,9 +521,9 @@ void render() {
 		frameChanged = false;
 	}
 
-	glUseProgram(hProgram);
+	glUseProgram(hSimpleProgram);
 	MVP = projection * view * model;
-	GLint location = glGetUniformLocation(hProgram, "MVP");
+	GLint location = glGetUniformLocation(hSimpleProgram, "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
@@ -542,10 +591,12 @@ int main(int argc, char **argv) {
 	createFrameSkeletons();
 	setUpModel();
 	setUpSkeletonRendering();
+	setUpMeshRendering();
+	setUpMeshShader();
 	setUpCamera();
 
 	glutDisplayFunc(render);
-	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
 	glutMainLoop();
 
 	return 0;

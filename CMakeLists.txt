@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8)
 project(bones)
 
 set(INCLUDES MD5Reader.h AnimCore.h MD5_MeshReader.h)
-set(SHADERS simple.vert simple.frag)
-source_group(Shaders FILES simple.vert simple.frag)
+set(SHADERS simple.vert simple.frag mesh.vert mesh.frag)
+source_group(Shaders FILES simple.vert simple.frag mesh.vert mesh.frag)
 set(SRCS main.cpp MD5Reader.cpp MD5_MeshReader.cpp ${SHADERS})
 
 # For Visual Studio
