@@ -87,6 +87,8 @@ struct RenderableMesh {
 	GLuint hIndexBuffer;
 };
 
+vector<RenderableMesh> g_Meshes;
+
 bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
 
@@ -453,12 +455,22 @@ void updateSkeletonData() {
 }
 
 void setUpMeshRendering() {
-	//glGenBuffers(1, &hMeshVBO);
-	//glBindBuffer(GL_ARRAY_BUFFER, hMeshVBO);
-	
 	unsigned int count = 0;
 	for(auto &mesh : g_MD5_VO.mesh.meshes) {
 		cout << "Mesh [" << count++ << "] " << mesh.textureFilename << endl;
+		RenderableMesh renderMesh;
+		renderMesh.mesh = mesh;
+
+		GLuint hVBO = 0;
+		glGenBuffers(1, &hVBO);
+		GLsizei bufferSize = mesh.vertices.size() * sizeof(float);
+		
+		vector<float> positions(mesh.vertices.size(), 0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, hVBO);
+		glBufferData(GL_ARRAY_BUFFER, bufferSize, &positions[0], GL_STATIC_DRAW);
+
+		
 	}
 }
 
