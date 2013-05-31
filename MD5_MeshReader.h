@@ -24,15 +24,16 @@ struct MD5_Weight {
 	glm::vec3 position;
 };
 
-struct MD5_MeshInfo {
-	std::vector<Joint> joints;
-};
-
 struct MD5_Mesh {
 	std::vector<MD5_Vertex> vertices;
 	std::vector<MD5_Triangle> triangles;
 	std::vector<MD5_Weight> weights;
 	std::string textureFilename;
+};
+
+struct MD5_MeshInfo {
+	std::vector<Joint> joints;
+	std::vector<MD5_Mesh> meshes;
 };
 
 class MD5_MeshReader {

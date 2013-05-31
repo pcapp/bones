@@ -36,13 +36,18 @@ struct Bounds {
 ////////////////////////
 // GLOBALS
 ////////////////////////
-MD5_AnimInfo g_AnimInfo;
+MD5_VO g_MD5_VO;
 
 GLuint hSimpleProgram;
 GLuint hVertShader;
 GLuint hFragShader;
 GLuint vao;
 GLuint hIndexBuffer;
+
+GLuint hMeshProgram;
+GLuint hMeshVBO;
+GLuint hMeshVAO;
+GLuint hMeshIndexBuffer;
 
 float yRotation = 0.0f;
 
@@ -76,9 +81,11 @@ struct FrameJoint {
 
 vector<vector<FrameJoint>> frameSkeletons;
 
-GLuint hMeshVBO;
-GLuint hMeshVAO;
-GLuint hMeshProgram;
+struct RenderableMesh {
+	MD5_Mesh mesh;
+	GLuint hVBO;
+	GLuint hIndexBuffer;
+};
 
 bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint shaderType) {
 	ifstream in(filename);
@@ -201,16 +208,16 @@ ostream &operator<<(ostream &out, const vec4 &v) {
 }
 
 void createFrameSkeletons() {
-	const int kNumJoints = g_AnimInfo.baseframeJoints.size();
+	const int kNumJoints = g_MD5_VO.animations[0].baseframeJoints.size();
 	
-	for(int i = 0; i < g_AnimInfo.numFrames; ++i) {
-		vector<float> frameData = g_AnimInfo.framesData[i]; // Render frame 0
+	for(int i = 0; i < g_MD5_VO.animations[0].numFrames; ++i) {
+		vector<float> frameData = g_MD5_VO.animations[0].framesData[i]; // Render frame 0
 		vector<FrameJoint> frameSkeleton;
 
 		for(int i = 0; i < kNumJoints; ++i) {
 			FrameJoint frameJoint;
-			const BaseframeJoint &baseframeJoint = g_AnimInfo.baseframeJoints[i];
-			const JointInfo &jointInfo = g_AnimInfo.jointsInfo[i];
+			const BaseframeJoint &baseframeJoint = g_MD5_VO.animations[0].baseframeJoints[i];
+			const JointInfo &jointInfo = g_MD5_VO.animations[0].jointsInfo[i];
 
 
 			// Start with the default settings from basejoint
@@ -446,7 +453,13 @@ void updateSkeletonData() {
 }
 
 void setUpMeshRendering() {
-
+	//glGenBuffers(1, &hMeshVBO);
+	//glBindBuffer(GL_ARRAY_BUFFER, hMeshVBO);
+	
+	unsigned int count = 0;
+	for(auto &mesh : g_MD5_VO.mesh.meshes) {
+		cout << "Mesh [" << count++ << "] " << mesh.textureFilename << endl;
+	}
 }
 
 void setUpMeshShader() {
@@ -527,7 +540,7 @@ void render() {
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
-	glDrawElements(GL_POINTS, g_AnimInfo.baseframeJoints.size(), GL_UNSIGNED_SHORT, 0);
+	glDrawElements(GL_POINTS, g_MD5_VO.animations[0].baseframeJoints.size(), GL_UNSIGNED_SHORT, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	glBindVertexArray(hSkeletonVAO);
@@ -563,9 +576,7 @@ int main(int argc, char **argv) {
 	const string animFilename("Boblamp/boblampclean.md5anim");
 
 	try {
-		 MD5_VO vo = reader.parse(meshFilename, animFilename);
-		 // Temporary
-		 g_AnimInfo = vo.animations[0];
+		 g_MD5_VO = reader.parse(meshFilename, animFilename);
 	}
 	catch(exception &e) {
 		cout << e.what() << endl;

@@ -39,6 +39,7 @@ MD5_MeshInfo MD5_MeshReader::parse(const std::string &filename) {
 	processMeshes();
 
 	mMeshFile.close();
+	mesh.meshes = mMeshes;
 
 	return mesh;
 }
@@ -155,6 +156,7 @@ void MD5_MeshReader::processMeshes() {
 		}
 
 		processMesh();
+		mMeshes.push_back(mCurMesh);
 	}
 }
 
