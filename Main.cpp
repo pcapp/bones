@@ -5,6 +5,7 @@
 	#include <GL/glut.h>
 #endif
 
+#include <algorithm>
 #include <exception>
 #include <fstream>
 #include <sstream>
@@ -461,6 +462,7 @@ void setUpMeshRendering() {
 		RenderableMesh renderMesh;
 		renderMesh.mesh = mesh;
 
+		// Set up the vertex positions for the mesh
 		GLuint hVBO = 0;
 		glGenBuffers(1, &hVBO);
 		GLsizei bufferSize = mesh.vertices.size() * sizeof(float);
@@ -469,8 +471,26 @@ void setUpMeshRendering() {
 
 		glBindBuffer(GL_ARRAY_BUFFER, hVBO);
 		glBufferData(GL_ARRAY_BUFFER, bufferSize, &positions[0], GL_STATIC_DRAW);
+		renderMesh.hVBO = hVBO;
 
+		// Set up the indices
+		GLuint hIndexBuffer;
+		glGenBuffers(1, &hIndexBuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
 		
+		vector<unsigned short> indices;
+		unsigned count = 0;
+		for_each(mesh.triangles.cbegin(), mesh.triangles.cend(), [&](const MD5_Triangle &tri) {
+			//cout << "[" << count++ << "] " << tri.indices[0] << ", " << tri.indices[1] << ", " << tri.indices[2] << endl;
+			indices.push_back(tri.indices[0]);
+			indices.push_back(tri.indices[1]);
+			indices.push_back(tri.indices[2]);
+		});
+
+		bufferSize = indices.size() * sizeof(unsigned short);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, bufferSize, &indices[0], GL_STATIC_DRAW);
+
+		renderMesh.hIndexBuffer = hIndexBuffer;
 	}
 }
 

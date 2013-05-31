@@ -15,7 +15,7 @@ struct MD5_Vertex {
 };
 
 struct MD5_Triangle {
-	unsigned int indices[3];
+	unsigned short indices[3];
 };
 
 struct MD5_Weight {
