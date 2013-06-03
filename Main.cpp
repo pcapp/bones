@@ -491,7 +491,15 @@ void setUpMeshRendering() {
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, bufferSize, &indices[0], GL_STATIC_DRAW);
 
 		renderMesh.hIndexBuffer = hIndexBuffer;
+		g_Meshes.push_back(renderMesh);
 	}
+
+	// Set up the VAO
+	glGenVertexArrays(1, &hMeshVAO);
+	glBindVertexArray(hMeshVAO);
+	glEnableVertexAttribArray(0); // VertexPosition
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glBindVertexArray(0);
 }
 
 void setUpMeshShader() {
@@ -556,10 +564,7 @@ void setUpCamera() {
 	glPointSize(5.0f);
 }
 
-void render() {
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+void renderSkeleton() {
 	if(frameChanged) {
 		updateJointData();
 		updateSkeletonData();
@@ -579,6 +584,38 @@ void render() {
 	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
 	glDrawArrays(GL_LINES, 0, numBonesToDraw * 2);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void renderMeshes() {
+	glBindVertexArray(hMeshVAO);
+
+	glUseProgram(hMeshProgram);
+	MVP = projection * view * model;
+	GLint location = glGetUniformLocation(hSimpleProgram, "MVP");
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
+
+
+	for(const auto &mesh : g_Meshes) {
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
+		
+		//cout << "Rendering " << mesh.mesh.textureFilename << endl;
+		GLsizei count = mesh.mesh.triangles.size();
+		//glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
+		glDrawElements(GL_POINTS, count, GL_UNSIGNED_SHORT, 0);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+}
+
+void render() {
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	renderSkeleton();
+	renderMeshes();
 
 	glutSwapBuffers();
 }
