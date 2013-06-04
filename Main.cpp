@@ -605,12 +605,12 @@ void updateVertexPositions(RenderableMesh &renderMesh) {
 			const FrameJoint &joint = curSkeleton[weight.jointIndex];
 			
 			vec3 tempPos = joint.orientation * weight.position + joint.position;
-			pos += tempPos * weight.weightBias;
-
-			updatedBuffer.push_back(pos.x);
-			updatedBuffer.push_back(pos.y);
-			updatedBuffer.push_back(pos.z);
+			pos += tempPos * weight.weightBias;			
 		}
+
+		updatedBuffer.push_back(pos.x);
+		updatedBuffer.push_back(pos.y);
+		updatedBuffer.push_back(pos.z);
 	}
 
 	// Update the VBO
@@ -635,14 +635,9 @@ void renderMeshes() {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
 		
 		GLsizei count = mesh.mesh.triangles.size() * 3;
-		//cout << "Rendering " << mesh.mesh.textureFilename << endl; 
+		
 		updateVertexPositions(mesh);
-
-		// UPDATE THE VBO HERE
-
-		glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
-		//glDrawElements(GL_POINTS, count, GL_UNSIGNED_SHORT, 0);
-		glBindVertexArray(0);
+		glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);		
 	}
 
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -656,8 +651,8 @@ void render() {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	renderSkeleton();
 	renderMeshes();
+	renderSkeleton();
 
 	glutSwapBuffers();
 }
