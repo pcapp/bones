@@ -423,7 +423,7 @@ void updateSkeletonData() {
 	vector<GLfloat> vertexData;
 	numBonesToDraw = 0;
 
-	vector<FrameJoint> frameSkeleton = frameSkeletons[curFrame];
+	vector<FrameJoint> &frameSkeleton = frameSkeletons[curFrame];
 
 	for(int i = 0; i < frameSkeleton.size(); ++i) {
 		FrameJoint &joint = frameSkeleton[i];
@@ -589,23 +589,63 @@ void renderSkeleton() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+void updateVertexPositions(RenderableMesh &renderMesh) {
+	MD5_Mesh &mesh = renderMesh.mesh;
+
+	// We can use an interpolated version later
+	vector<FrameJoint> &curSkeleton = frameSkeletons[curFrame];
+	vector<GLfloat> updatedBuffer;
+
+	for(MD5_Vertex &vertex: mesh.vertices) {
+		vec3 pos(0,0,0);
+
+		for(int i = 0; i < vertex.weightCount; ++i) {
+			// Get the weight
+			const MD5_Weight &weight = mesh.weights[vertex.startWeight+i];
+			const FrameJoint &joint = curSkeleton[weight.jointIndex];
+			
+			vec3 tempPos = joint.orientation * weight.position + joint.position;
+			pos += tempPos * weight.weightBias;
+
+			updatedBuffer.push_back(pos.x);
+			updatedBuffer.push_back(pos.y);
+			updatedBuffer.push_back(pos.z);
+		}
+	}
+
+	// Update the VBO
+	glBindBuffer(GL_ARRAY_BUFFER, renderMesh.hVBO);
+	GLsizei size = updatedBuffer.size() * sizeof(GLfloat);
+	glBufferData(GL_ARRAY_BUFFER, size, &updatedBuffer[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void renderMeshes() {	
 	glUseProgram(hMeshProgram);
 	MVP = projection * view * model;
 	GLint location = glGetUniformLocation(hSimpleProgram, "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 
-	for(const auto &mesh : g_Meshes) {
+	// Start wireframe rendering
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	for(auto &mesh : g_Meshes) {
 		glBindVertexArray(mesh.hVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.hVBO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
 		
-		GLsizei count = mesh.mesh.triangles.size();
+		GLsizei count = mesh.mesh.triangles.size() * 3;
 		//cout << "Rendering " << mesh.mesh.textureFilename << endl; 
-		//glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
-		glDrawElements(GL_POINTS, count, GL_UNSIGNED_SHORT, 0);
+		updateVertexPositions(mesh);
+
+		// UPDATE THE VBO HERE
+
+		glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
+		//glDrawElements(GL_POINTS, count, GL_UNSIGNED_SHORT, 0);
 		glBindVertexArray(0);
 	}
+
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -626,7 +666,7 @@ void onTimerTick(int value) {
 	yRotation += 5.0f;
 	//model = glm::rotate(mat4(), yRotation, vec3(0, 1, 0)); 
 	//model = glm::rotate(model, -90.0f, vec3(1, 0, 0));
-	model = glm::rotate(mat4(), -90.0f, vec3(1, 0, 0));
+	//model = glm::rotate(mat4(), -90.0f, vec3(1, 0, 0));
 	
 	elapsedTime += kTimerPeriod;
 	int temp = (elapsedTime / 24) % 140;
@@ -660,6 +700,7 @@ int main(int argc, char **argv) {
 #else
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 #endif
+	glEnable(GL_DEPTH_TEST);
 	glutInitWindowSize(640, 480);
 	glutCreateWindow("Animated character");	
 	// Context created at this point
@@ -678,7 +719,7 @@ int main(int argc, char **argv) {
 	setUpCamera();
 
 	glutDisplayFunc(render);
-	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
 	glutMainLoop();
 
 	return 0;
