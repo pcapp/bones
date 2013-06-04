@@ -46,9 +46,9 @@ GLuint vao;
 GLuint hIndexBuffer;
 
 GLuint hMeshProgram;
-GLuint hMeshVBO;
-GLuint hMeshVAO;
-GLuint hMeshIndexBuffer;
+//GLuint hMeshVBO;
+//GLuint hMeshVAO;
+//GLuint hMeshIndexBuffer;
 
 float yRotation = 0.0f;
 
@@ -85,6 +85,7 @@ vector<vector<FrameJoint>> frameSkeletons;
 struct RenderableMesh {
 	MD5_Mesh mesh;
 	GLuint hVBO;
+	GLuint hVAO;
 	GLuint hIndexBuffer;
 };
 
@@ -491,15 +492,17 @@ void setUpMeshRendering() {
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, bufferSize, &indices[0], GL_STATIC_DRAW);
 
 		renderMesh.hIndexBuffer = hIndexBuffer;
+
+		// Set up the VAO
+		glGenVertexArrays(1, &renderMesh.hVAO);
+		glBindVertexArray(renderMesh.hVAO);
+
+		glEnableVertexAttribArray(0); // VertexPosition
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glBindVertexArray(0);
+
 		g_Meshes.push_back(renderMesh);
 	}
-
-	// Set up the VAO
-	glGenVertexArrays(1, &hMeshVAO);
-	glBindVertexArray(hMeshVAO);
-	glEnableVertexAttribArray(0); // VertexPosition
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glBindVertexArray(0);
 }
 
 void setUpMeshShader() {
@@ -586,23 +589,22 @@ void renderSkeleton() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void renderMeshes() {
-	glBindVertexArray(hMeshVAO);
-
+void renderMeshes() {	
 	glUseProgram(hMeshProgram);
 	MVP = projection * view * model;
 	GLint location = glGetUniformLocation(hSimpleProgram, "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 
-
 	for(const auto &mesh : g_Meshes) {
+		glBindVertexArray(mesh.hVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.hVBO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
 		
-		//cout << "Rendering " << mesh.mesh.textureFilename << endl;
 		GLsizei count = mesh.mesh.triangles.size();
+		//cout << "Rendering " << mesh.mesh.textureFilename << endl; 
 		//glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);
 		glDrawElements(GL_POINTS, count, GL_UNSIGNED_SHORT, 0);
+		glBindVertexArray(0);
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
