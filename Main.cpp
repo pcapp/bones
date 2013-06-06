@@ -1,4 +1,10 @@
- #include <GL/glew.h>
+#ifdef EMSCRIPTEN
+#define		GL_GLEXT_PROTOTYPES
+#define		EGL_EGLEXT_PROTOTYPES
+#else 
+#include <GL/glew.h>
+#endif
+
 #if __APPLE__
 	#include <GLUT/glut.h>
 #else 
@@ -133,12 +139,15 @@ bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint
 	glAttachShader(hProgram, hShader);
 	
 	delete[] buffer;
+	cout << "Compiled " << filename << endl;
 	return true;
 }
 
 bool makeShaderProgram() {
+	cout << "Calling glCreateProgram" << endl;
 	hSimpleProgram = glCreateProgram();
 
+	cout << "Compile simple.vert" << endl;
 	if(!buildShader(hSimpleProgram, hVertShader, "simple.vert", GL_VERTEX_SHADER)) {		
 		return false;
 	}
@@ -146,6 +155,7 @@ bool makeShaderProgram() {
 	glBindAttribLocation(hSimpleProgram, 0, "VertexPosition");
 	glBindAttribLocation(hSimpleProgram, 1, "VertexRGBA");
 
+	cout << "Compiled simple.frag" << endl;
 	if(!buildShader(hSimpleProgram, hFragShader, "simple.frag", GL_FRAGMENT_SHADER)) {
 		return false;
 	}
@@ -520,6 +530,7 @@ void setUpMeshShader() {
 		cout << "Could not build mesh.vert." << endl;
 		return;
 	}
+	cout << "Compiled mesh.vert" << endl;
 
 	glBindAttribLocation(hMeshProgram, 0, "VertexPosition");
 
@@ -527,6 +538,8 @@ void setUpMeshShader() {
 		cout << "Could not compile mesh.frag" << endl;
 		return;
 	}
+
+	cout << "Compiled mesh.frag" << endl;
 
 	GLint linkStatus;
 	glLinkProgram(hMeshProgram);
@@ -547,6 +560,7 @@ void setUpMeshShader() {
 }
 
 void setUpCamera() {
+	cout << "Setting up the MVP matrix." << endl;
 	// Set up the camera to frame the model. 
 	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
 	
@@ -564,7 +578,10 @@ void setUpCamera() {
 	// temp
 	model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
 
-	glPointSize(5.0f);
+	cout << "Setting the point size." << endl;
+	//glPointSize(5.0f);
+	//gl_PointSize = 5.0f;
+	cout << "Set the point size." << endl;
 }
 
 void renderSkeleton() {
@@ -652,7 +669,7 @@ void render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	renderMeshes();
-	renderSkeleton();
+	//renderSkeleton();
 
 	glutSwapBuffers();
 }
@@ -678,6 +695,7 @@ void onTimerTick(int value) {
 
 int main(int argc, char **argv) {
 	Md5Reader reader;
+	cout << "Starting the main function" << endl;
 	const string meshFilename("Boblamp/boblampclean.md5mesh");
 	const string animFilename("Boblamp/boblampclean.md5anim");
 
@@ -689,32 +707,40 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	
+	cout << "Initializating GLUT." << endl;
 	glutInit(&argc, argv);
-#ifdef __APPLE__
-	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-#else
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-#endif
+// #ifdef __APPLE__
+// 	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+// #else
+// 	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+// #endif
 	
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 	glutInitWindowSize(640, 480);
 	glutCreateWindow("Animated character");	
+	cout << "Created the context." << endl;
+	//cout << "Seting up GLEW" << endl;
 	// Context created at this point
-	glewExperimental = GL_TRUE; 
-	GLenum glewRetVal = glewInit();
+	//glewExperimental = GL_TRUE; 
+	//GLenum glewRetVal = glewInit();
 	if(!makeShaderProgram()) {
 		cout << "Unable to build the shader program." << endl;
 		return -1;
 	}
 
+	cout << "Creating the frame skeletons" << endl;
 	createFrameSkeletons();
-	setUpModel();
-	setUpSkeletonRendering();
+	//setUpModel();
+	//setUpSkeletonRendering();
 	setUpMeshRendering();
 	setUpMeshShader();
+	cout << "Setting up the camera." << endl;
 	setUpCamera();
 
+	cout << "Setting the display function." << endl;
 	glutDisplayFunc(render);
-	glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	//glutTimerFunc(kTimerPeriod, onTimerTick, 0);
+	cout << "Going to enter the main loop." << endl;
 	glutMainLoop();
 
 	return 0;

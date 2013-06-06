@@ -1,9 +1,8 @@
-#version 150
+varying vec4 RGBA;
 
-in vec4 RGBA;
-out vec4 Color;
+varying vec4 Color;
 
 void main() {
-	Color = RGBA;
+	gl_FragColor = RGBA;
 	//Color = vec4(1.0, 0.0, 0.0, 1.0f);
 }

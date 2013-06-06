@@ -1,8 +1,7 @@
-#version 150
+attribute vec3 VertexPosition;
+attribute vec4 VertexRGBA;
 
-in vec3 VertexPosition;
-in vec4 VertexRGBA;
-out vec4 RGBA;
+varying vec4 RGBA;
 
 uniform mat4 MVP;
 
