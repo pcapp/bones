@@ -627,7 +627,7 @@ void renderMeshes() {
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 
 	// Start wireframe rendering
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	for(auto &mesh : g_Meshes) {
 		glBindVertexArray(mesh.hVAO);
@@ -640,7 +640,7 @@ void renderMeshes() {
 		glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, 0);		
 	}
 
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -681,6 +681,7 @@ int main(int argc, char **argv) {
 	const string meshFilename("Boblamp/boblampclean.md5mesh");
 	const string animFilename("Boblamp/boblampclean.md5anim");
 
+	cout << "Loading the model data." << endl;
 	try {
 		 g_MD5_VO = reader.parse(meshFilename, animFilename);
 	}
@@ -689,13 +690,13 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 	
+	cout << "Initializing GLUT." << endl;
 	glutInit(&argc, argv);
 #ifdef __APPLE__
 	glutInitDisplayMode(GLUT_3_2_CORE_PROFILE | GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 #else
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 #endif
-	glEnable(GL_DEPTH_TEST);
 	glutInitWindowSize(640, 480);
 	glutCreateWindow("Animated character");	
 	// Context created at this point
@@ -706,6 +707,7 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	cout << "Created the shader and loaded the mesh." << endl;
 	createFrameSkeletons();
 	setUpModel();
 	setUpSkeletonRendering();
