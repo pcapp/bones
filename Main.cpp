@@ -34,35 +34,47 @@ struct Bounds {
 	float maxZ;
 };
 
+struct FrameJoint {
+	string name;
+	vec3 position;
+	quat orientation;
+	int parentIndex;
+};
+
+struct RenderableMesh {
+	MD5_Mesh mesh;
+	GLuint hVBO;
+	GLuint hVAO;
+	GLuint hIndexBuffer;
+};
+
 ////////////////////////
 // GLOBALS
 ////////////////////////
 MD5_VO g_MD5_VO;
 
-GLuint hSimpleProgram;
-GLuint hVertShader;
-GLuint hFragShader;
-GLuint vao;
-GLuint hIndexBuffer;
+GLuint g_hPassthroughProgram;
+GLuint g_hVertShader;
+GLuint g_hFragShader;
+
+// For rendering the joints
+GLuint g_hJointVAO;
+GLuint g_hJointIndexBuffer;
 
 GLuint hMeshProgram;
-//GLuint hMeshVBO;
-//GLuint hMeshVAO;
-//GLuint hMeshIndexBuffer;
 
 float yRotation = 0.0f;
 
-mat4 model;
-mat4 view;
-mat4 projection;
-mat4 MVP;
+mat4 g_model;
+mat4 g_view;
+mat4 g_projection;
+mat4 g_MVP;
 
-vector<int> lineIndices;
-GLuint hSkeletonBuffer;
-GLuint hSkeletonVAO;
-GLuint numBonesToDraw;
+GLuint g_hSkeletonBuffer;
+GLuint g_hSkeletonVAO;
+GLuint g_numBonesToDraw;
 
-Bounds bounds;
+Bounds g_bounds;
 
 bool frameChanged = true;
 int curFrame = 0;
@@ -73,22 +85,7 @@ GLuint hColorsBuffer;
 const int kTimerPeriod = 50;
 const float kFovY = 45.0f;
 
-struct FrameJoint {
-	string name;
-	vec3 position;
-	quat orientation;
-	int parentIndex;
-};
-
 vector<vector<FrameJoint>> frameSkeletons;
-
-struct RenderableMesh {
-	MD5_Mesh mesh;
-	GLuint hVBO;
-	GLuint hVAO;
-	GLuint hIndexBuffer;
-};
-
 vector<RenderableMesh> g_Meshes;
 
 bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint shaderType) {
@@ -137,31 +134,31 @@ bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint
 }
 
 bool makeShaderProgram() {
-	hSimpleProgram = glCreateProgram();
+	g_hPassthroughProgram = glCreateProgram();
 
-	if(!buildShader(hSimpleProgram, hVertShader, "simple.vert", GL_VERTEX_SHADER)) {		
+	if(!buildShader(g_hPassthroughProgram, g_hVertShader, "simple.vert", GL_VERTEX_SHADER)) {		
 		return false;
 	}
 
-	glBindAttribLocation(hSimpleProgram, 0, "VertexPosition");
-	glBindAttribLocation(hSimpleProgram, 1, "VertexRGBA");
+	glBindAttribLocation(g_hPassthroughProgram, 0, "VertexPosition");
+	glBindAttribLocation(g_hPassthroughProgram, 1, "VertexRGBA");
 
-	if(!buildShader(hSimpleProgram, hFragShader, "simple.frag", GL_FRAGMENT_SHADER)) {
+	if(!buildShader(g_hPassthroughProgram, g_hFragShader, "simple.frag", GL_FRAGMENT_SHADER)) {
 		return false;
 	}
 
 	GLint linkStatus;
-	glLinkProgram(hSimpleProgram);
-	glGetProgramiv(hSimpleProgram, GL_LINK_STATUS, &linkStatus);
+	glLinkProgram(g_hPassthroughProgram);
+	glGetProgramiv(g_hPassthroughProgram, GL_LINK_STATUS, &linkStatus);
 	if(GL_FALSE == linkStatus) {
 		cout << "Error linking the shader program." << endl;
 		GLint logLength;
-		glGetProgramiv(hSimpleProgram, GL_INFO_LOG_LENGTH, &logLength);
+		glGetProgramiv(g_hPassthroughProgram, GL_INFO_LOG_LENGTH, &logLength);
 
 		if(logLength > 0) {
 			GLsizei bytesRead;
 			char *log = new char[logLength];
-			glGetProgramInfoLog(hSimpleProgram, logLength, &bytesRead, log);	
+			glGetProgramInfoLog(g_hPassthroughProgram, logLength, &bytesRead, log);	
 			cout << log << endl;	
 			delete []log;
 		}
@@ -303,7 +300,7 @@ void setUpModel() {
 		colors.push_back(1.0f);
 	}
 	
-	CalculateBounds(&vertices[0], vertices.size(), bounds);
+	CalculateBounds(&vertices[0], vertices.size(), g_bounds);
 
 	// Set up the vertex buffer object
 	glGenBuffers(1, &hVerticesBuffer);
@@ -315,8 +312,8 @@ void setUpModel() {
 	glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &colors[0], GL_STATIC_DRAW);
 
 	// Set up the vertex array object
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	glGenVertexArrays(1, &g_hJointVAO);
+	glBindVertexArray(g_hJointVAO);
 
 	glEnableVertexAttribArray(0); // Vertex position
 	glEnableVertexAttribArray(1); // RGBA
@@ -332,8 +329,8 @@ void setUpModel() {
 		indices.push_back(i);
 	}
 	
-	glGenBuffers(1, &hIndexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
+	glGenBuffers(1, &g_hJointIndexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_hJointIndexBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLushort), &indices[0], GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -342,7 +339,7 @@ void setUpModel() {
 
 void setUpSkeletonRendering() {
 	vector<GLfloat> vertexData;
-	numBonesToDraw = 0;
+	g_numBonesToDraw = 0;
 
 	vector<FrameJoint> frameSkeleton = frameSkeletons[curFrame];
 
@@ -369,17 +366,17 @@ void setUpSkeletonRendering() {
 			vertexData.push_back(0.0f); // B
 			vertexData.push_back(1.0f); // A
 
-			++numBonesToDraw;
+			++g_numBonesToDraw;
 		}
 	}
 
-	glGenBuffers(1, &hSkeletonBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
+	glGenBuffers(1, &g_hSkeletonBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, g_hSkeletonBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), &vertexData[0], GL_STATIC_DRAW);
 
 	// Create the VAO
-	glGenVertexArrays(1, &hSkeletonVAO);
-	glBindVertexArray(hSkeletonVAO);
+	glGenVertexArrays(1, &g_hSkeletonVAO);
+	glBindVertexArray(g_hSkeletonVAO);
 
 	glEnableVertexAttribArray(0); // VertexPosition
 	glEnableVertexAttribArray(1); // VertexRGBA
@@ -421,7 +418,7 @@ void updateJointData() {
 
 void updateSkeletonData() {
 	vector<GLfloat> vertexData;
-	numBonesToDraw = 0;
+	g_numBonesToDraw = 0;
 
 	vector<FrameJoint> &frameSkeleton = frameSkeletons[curFrame];
 
@@ -448,11 +445,11 @@ void updateSkeletonData() {
 			vertexData.push_back(0.0f); // B
 			vertexData.push_back(1.0f); // A
 
-			++numBonesToDraw;
+			++g_numBonesToDraw;
 		}
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, g_hSkeletonBuffer);
 	glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), &vertexData[0], GL_STATIC_DRAW);
 }
 
@@ -513,17 +510,17 @@ void setUpMeshShader() {
 		return;
 	}
 
-	GLuint hVertShader;
-	GLuint hFragShader;
+	GLuint g_hVertShader;
+	GLuint g_hFragShader;
 
-	if(!buildShader(hMeshProgram, hVertShader, "mesh.vert", GL_VERTEX_SHADER)) {
+	if(!buildShader(hMeshProgram, g_hVertShader, "mesh.vert", GL_VERTEX_SHADER)) {
 		cout << "Could not build mesh.vert." << endl;
 		return;
 	}
 
 	glBindAttribLocation(hMeshProgram, 0, "VertexPosition");
 
-	if(!buildShader(hMeshProgram, hFragShader, "mesh.frag", GL_FRAGMENT_SHADER)) {
+	if(!buildShader(hMeshProgram, g_hFragShader, "mesh.frag", GL_FRAGMENT_SHADER)) {
 		cout << "Could not compile mesh.frag" << endl;
 		return;
 	}
@@ -548,21 +545,20 @@ void setUpMeshShader() {
 
 void setUpCamera() {
 	// Set up the camera to frame the model. 
-	projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
+	g_projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
 	
-	float modelLen = max(bounds.minY, bounds.maxY);
+	float modelLen = max(g_bounds.minY, g_bounds.maxY);
 	float totalLen = modelLen / 0.8f;
 	float half_fov = kFovY / 2.0f; // Normally done by our camera
 
 	float radians = half_fov * 3.1459895f / 180.0f;
 	float z = totalLen / tan(radians);
-	
-	//cout << "Moving the camera to: " << z << endl;
+	 
 	//view = glm::translate(mat4(), vec3(0, 0, -z));
-	view = glm::translate(mat4(), vec3(0, -20, -120));
+	g_view = glm::translate(mat4(), vec3(0, -20, -120));
 	
 	// temp
-	model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
+	g_model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
 
 	glPointSize(5.0f);
 }
@@ -574,18 +570,18 @@ void renderSkeleton() {
 		frameChanged = false;
 	}
 
-	glUseProgram(hSimpleProgram);
-	MVP = projection * view * model;
-	GLint location = glGetUniformLocation(hSimpleProgram, "MVP");
-	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hIndexBuffer);
+	glUseProgram(g_hPassthroughProgram);
+	g_MVP = g_projection * g_view * g_model;
+	GLint location = glGetUniformLocation(g_hPassthroughProgram, "MVP");
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(g_MVP));
+	glBindVertexArray(g_hJointVAO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_hJointIndexBuffer);
 	glDrawElements(GL_POINTS, g_MD5_VO.animations[0].baseframeJoints.size(), GL_UNSIGNED_SHORT, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	glBindVertexArray(hSkeletonVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, hSkeletonBuffer);
-	glDrawArrays(GL_LINES, 0, numBonesToDraw * 2);
+	glBindVertexArray(g_hSkeletonVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, g_hSkeletonBuffer);
+	glDrawArrays(GL_LINES, 0, g_numBonesToDraw * 2);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -622,9 +618,9 @@ void updateVertexPositions(RenderableMesh &renderMesh) {
 
 void renderMeshes() {	
 	glUseProgram(hMeshProgram);
-	MVP = projection * view * model;
-	GLint location = glGetUniformLocation(hSimpleProgram, "MVP");
-	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
+	g_MVP = g_projection * g_view * g_model;
+	GLint location = glGetUniformLocation(g_hPassthroughProgram, "MVP");
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(g_MVP));
 
 	// Start wireframe rendering
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

@@ -19,7 +19,6 @@ struct BaseframeJoint {
 	glm::mat4 jointToWorld;
 };
 
-
 struct MD5_AnimInfo {
 	std::vector<BaseframeJoint> baseframeJoints;
 	std::vector<JointInfo> jointsInfo;
