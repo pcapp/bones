@@ -16,6 +16,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include "Shader.h"
 #include "AnimCore.h"
 #include "MD5Reader.h"
 
@@ -53,15 +54,12 @@ struct RenderableMesh {
 ////////////////////////
 MD5_VO g_MD5_VO;
 
-GLuint g_hPassthroughProgram;
-GLuint g_hVertShader;
-GLuint g_hFragShader;
+Shader g_PassthroughShader("simple.vert", "simple.frag");
+Shader g_MeshShader("mesh.vert", "mesh.frag");
 
 // For rendering the joints
 GLuint g_hJointVAO;
 GLuint g_hJointIndexBuffer;
-
-GLuint hMeshProgram;
 
 float yRotation = 0.0f;
 
@@ -88,83 +86,21 @@ const float kFovY = 45.0f;
 vector<vector<FrameJoint>> frameSkeletons;
 vector<RenderableMesh> g_Meshes;
 
-bool buildShader(GLuint &hProgram, GLuint &hShader, const char *filename, GLuint shaderType) {
-	ifstream in(filename);
-
-	if(!in) {
-		cout << "Could not open " << filename << endl;
-		return false;
+bool buildShaders() {
+	if(!g_PassthroughShader.build()) {
+		cout << "Could not build the passthrough shader." << endl;
+		exit(EXIT_FAILURE);
 	}
 	
-	stringstream inStream;
-	inStream << in.rdbuf() << '\0';
+	glBindAttribLocation(g_PassthroughShader.handle(), 0, "VertexPosition");
+	glBindAttribLocation(g_PassthroughShader.handle(), 1, "VertexRGBA");
 
-	int bufSize = inStream.str().length();
-	char *buffer = new char[bufSize];
-	memcpy(buffer, inStream.str().c_str(), bufSize);
-	
-	const GLchar *sources[] = {buffer};
-	
-	hShader = glCreateShader(shaderType);
-	glShaderSource(hShader, 1, sources, NULL);
-	glCompileShader(hShader);
-
-	int compileStatus;
-	glGetShaderiv(hShader, GL_COMPILE_STATUS, &compileStatus);
-
-	if(GL_FALSE == compileStatus) {
-		cout << "Could not compile the shader" << endl;
-		GLint logLength;
-		glGetShaderiv(hShader, GL_INFO_LOG_LENGTH, &logLength);
-		if(logLength > 0) {
-			GLsizei numBytesRead;
-			char *log = new char[logLength];
-			glGetShaderInfoLog(hShader, logLength, &numBytesRead, log);
-			cout << log << endl;
-			delete [] log;
-		}
-		delete[] buffer;
+	if(!g_MeshShader.build()) {
+		cout << "Could not build the mesh shader." << endl;
 		return false;
 	}
 
-	glAttachShader(hProgram, hShader);
-	
-	delete[] buffer;
-	return true;
-}
-
-bool makeShaderProgram() {
-	g_hPassthroughProgram = glCreateProgram();
-
-	if(!buildShader(g_hPassthroughProgram, g_hVertShader, "simple.vert", GL_VERTEX_SHADER)) {		
-		return false;
-	}
-
-	glBindAttribLocation(g_hPassthroughProgram, 0, "VertexPosition");
-	glBindAttribLocation(g_hPassthroughProgram, 1, "VertexRGBA");
-
-	if(!buildShader(g_hPassthroughProgram, g_hFragShader, "simple.frag", GL_FRAGMENT_SHADER)) {
-		return false;
-	}
-
-	GLint linkStatus;
-	glLinkProgram(g_hPassthroughProgram);
-	glGetProgramiv(g_hPassthroughProgram, GL_LINK_STATUS, &linkStatus);
-	if(GL_FALSE == linkStatus) {
-		cout << "Error linking the shader program." << endl;
-		GLint logLength;
-		glGetProgramiv(g_hPassthroughProgram, GL_INFO_LOG_LENGTH, &logLength);
-
-		if(logLength > 0) {
-			GLsizei bytesRead;
-			char *log = new char[logLength];
-			glGetProgramInfoLog(g_hPassthroughProgram, logLength, &bytesRead, log);	
-			cout << log << endl;	
-			delete []log;
-		}
-
-		return false;
-	}
+	glBindAttribLocation(g_MeshShader.handle(), 0, "VertexPosition");
 
 	return true;
 }
@@ -502,47 +438,6 @@ void setUpMeshRendering() {
 	}
 }
 
-void setUpMeshShader() {
-	hMeshProgram = glCreateProgram();
-
-	if(GL_FALSE == hMeshProgram) {
-		cout << "Could not create a shader program handle." << endl;
-		return;
-	}
-
-	GLuint g_hVertShader;
-	GLuint g_hFragShader;
-
-	if(!buildShader(hMeshProgram, g_hVertShader, "mesh.vert", GL_VERTEX_SHADER)) {
-		cout << "Could not build mesh.vert." << endl;
-		return;
-	}
-
-	glBindAttribLocation(hMeshProgram, 0, "VertexPosition");
-
-	if(!buildShader(hMeshProgram, g_hFragShader, "mesh.frag", GL_FRAGMENT_SHADER)) {
-		cout << "Could not compile mesh.frag" << endl;
-		return;
-	}
-
-	GLint linkStatus;
-	glLinkProgram(hMeshProgram);
-	glGetProgramiv(hMeshProgram, GL_LINK_STATUS, &linkStatus);
-	if(GL_FALSE == linkStatus) {
-		cout << "Error linking the mesh shader program." << endl;
-		GLint logLength;
-		glGetProgramiv(hMeshProgram, GL_INFO_LOG_LENGTH, &logLength);
-
-		if(logLength > 0) {
-			GLsizei bytesRead;
-			char *log = new char[logLength];
-			glGetProgramInfoLog(hMeshProgram, logLength, &bytesRead, log);	
-			cout << log << endl;	
-			delete []log;
-		}
-	}
-}
-
 void setUpCamera() {
 	// Set up the camera to frame the model. 
 	g_projection = glm::perspective(kFovY, 4.0f/3.0f, 0.1f, 1000.0f);
@@ -570,9 +465,9 @@ void renderSkeleton() {
 		frameChanged = false;
 	}
 
-	glUseProgram(g_hPassthroughProgram);
+	glUseProgram(g_PassthroughShader.handle());
 	g_MVP = g_projection * g_view * g_model;
-	GLint location = glGetUniformLocation(g_hPassthroughProgram, "MVP");
+	GLint location = glGetUniformLocation(g_PassthroughShader.handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(g_MVP));
 	glBindVertexArray(g_hJointVAO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_hJointIndexBuffer);
@@ -617,9 +512,9 @@ void updateVertexPositions(RenderableMesh &renderMesh) {
 }
 
 void renderMeshes() {	
-	glUseProgram(hMeshProgram);
+	glUseProgram(g_MeshShader.handle());
 	g_MVP = g_projection * g_view * g_model;
-	GLint location = glGetUniformLocation(g_hPassthroughProgram, "MVP");
+	GLint location = glGetUniformLocation(g_PassthroughShader.handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(g_MVP));
 
 	// Start wireframe rendering
@@ -698,7 +593,8 @@ int main(int argc, char **argv) {
 	// Context created at this point
 	glewExperimental = GL_TRUE; 
 	GLenum glewRetVal = glewInit();
-	if(!makeShaderProgram()) {
+
+	if(!buildShaders()) {
 		cout << "Unable to build the shader program." << endl;
 		return -1;
 	}
@@ -708,7 +604,6 @@ int main(int argc, char **argv) {
 	setUpModel();
 	setUpSkeletonRendering();
 	setUpMeshRendering();
-	setUpMeshShader();
 	setUpCamera();
 
 	glutDisplayFunc(render);
