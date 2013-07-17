@@ -12,15 +12,11 @@
 
 class Shader {
 public:
-	Shader(const std::string &vertexShaderFilename, const std::string &fragmentShaderFilename);
-	bool build();
-	GLuint handle() const;
-private:
+	Shader();
 	bool compile(const std::string &filename, GLuint shaderType);
 	bool link();
+	GLuint handle() const;	
 private:
-	std::string mVertexShaderFilename;
-	std::string mFragmentShaderFilename;
 	GLuint mHandle; 
 };
 

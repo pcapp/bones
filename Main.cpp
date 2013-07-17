@@ -54,8 +54,8 @@ struct RenderableMesh {
 ////////////////////////
 MD5_VO g_MD5_VO;
 
-Shader g_PassthroughShader("simple.vert", "simple.frag");
-Shader g_MeshShader("mesh.vert", "mesh.frag");
+Shader *g_pPassthroughShader;
+Shader *g_pMeshShader;
 
 // For rendering the joints
 GLuint g_hJointVAO;
@@ -87,20 +87,21 @@ vector<vector<FrameJoint>> frameSkeletons;
 vector<RenderableMesh> g_Meshes;
 
 bool buildShaders() {
-	if(!g_PassthroughShader.build()) {
-		cout << "Could not build the passthrough shader." << endl;
-		exit(EXIT_FAILURE);
-	}
+	g_pPassthroughShader = new Shader();
+	g_pPassthroughShader->compile("simple.vert", GL_VERTEX_SHADER);
+	g_pPassthroughShader->compile("simple.frag", GL_FRAGMENT_SHADER);
 	
-	glBindAttribLocation(g_PassthroughShader.handle(), 0, "VertexPosition");
-	glBindAttribLocation(g_PassthroughShader.handle(), 1, "VertexRGBA");
+	glBindAttribLocation(g_pPassthroughShader->handle(), 0, "VertexPosition");
+	glBindAttribLocation(g_pPassthroughShader->handle(), 1, "VertexRGBA");
 
-	if(!g_MeshShader.build()) {
-		cout << "Could not build the mesh shader." << endl;
-		return false;
-	}
+	g_pPassthroughShader->link();
 
-	glBindAttribLocation(g_MeshShader.handle(), 0, "VertexPosition");
+	g_pMeshShader = new Shader();
+	g_pMeshShader->compile("mesh.vert", GL_VERTEX_SHADER);
+	g_pMeshShader->compile("mesh.frag", GL_FRAGMENT_SHADER);
+	
+	glBindAttribLocation(g_pMeshShader->handle(), 0, "VertexPosition");
+	g_pMeshShader->link();
 
 	return true;
 }
@@ -465,9 +466,9 @@ void renderSkeleton() {
 		frameChanged = false;
 	}
 
-	glUseProgram(g_PassthroughShader.handle());
+	glUseProgram(g_pPassthroughShader->handle());
 	g_MVP = g_projection * g_view * g_model;
-	GLint location = glGetUniformLocation(g_PassthroughShader.handle(), "MVP");
+	GLint location = glGetUniformLocation(g_pPassthroughShader->handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(g_MVP));
 	glBindVertexArray(g_hJointVAO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_hJointIndexBuffer);
@@ -512,9 +513,9 @@ void updateVertexPositions(RenderableMesh &renderMesh) {
 }
 
 void renderMeshes() {	
-	glUseProgram(g_MeshShader.handle());
+	glUseProgram(g_pMeshShader->handle());
 	g_MVP = g_projection * g_view * g_model;
-	GLint location = glGetUniformLocation(g_PassthroughShader.handle(), "MVP");
+	GLint location = glGetUniformLocation(g_pPassthroughShader->handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(g_MVP));
 
 	// Start wireframe rendering

@@ -9,28 +9,8 @@ using std::stringstream;
 using std::cout;
 using std::endl;
 
-Shader::Shader(const std::string &vertexShaderFilename, const std::string &fragmentShaderFilename)
-	: mVertexShaderFilename(vertexShaderFilename), mFragmentShaderFilename(fragmentShaderFilename) 
-{
-	
-}
-
-bool Shader::build() {
+Shader::Shader() {
 	mHandle = glCreateProgram();
-
-	if(!compile(mVertexShaderFilename, GL_VERTEX_SHADER)) {
-		return false;
-	}
-
-	if(!compile(mFragmentShaderFilename, GL_FRAGMENT_SHADER)) {
-		return false;
-	}
-
-	if(!link()) {
-		return false;
-	}
-
-	return true;	
 }
 
 bool Shader::compile(const std::string &filename, GLuint shaderType) {
