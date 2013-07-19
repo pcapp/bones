@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(bones)
 
 set(INCLUDES MD5Reader.h AnimCore.h MD5_MeshReader.h Shader.h)
-set(SHADERS simple.vert simple.frag mesh.vert mesh.frag)
+set(SHADERS simple.vert simple.frag mesh.vert mesh.frag baseframe_shader.vert baseframe_shader.frag)
 source_group(Shaders FILES simple.vert simple.frag mesh.vert mesh.frag)
 set(SRCS main.cpp MD5Reader.cpp MD5_MeshReader.cpp Shader.cpp ${SHADERS})
 
@@ -46,3 +46,10 @@ add_custom_command(TARGET main POST_BUILD
 
 add_executable(skeleton_test skeleton_test.cpp)
 add_executable(conversion_test conversion_test.cpp)
+
+# Computes the model space position of vertices in bind pose. Then renders them.
+set(BASEFRAME_RENDER_SRCS baseframe_render.cpp MD5_MeshReader.cpp Shader.cpp baseframe_shader.vert baseframe_shader.frag)
+set(BASEFRAME_RENDER_INCLUDES MD5_MeshReader.h Shader.h)
+
+add_executable(baseframe_render ${BASEFRAME_RENDER_SRCS} ${BASEFRAME_RENDER_INCLUDES})
+target_link_libraries(baseframe_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
