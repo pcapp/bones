@@ -10,9 +10,11 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "MD5_MeshReader.h"
+#include "MD5_AnimReader.h"
 #include "Shader.h"
 
 using std::unique_ptr;
@@ -24,6 +26,7 @@ using std::vector;
 using glm::vec3;
 using glm::vec4;
 using glm::mat4;
+using glm::quat;
 
 // Structures / Classes
 struct Vertex {
@@ -31,6 +34,8 @@ struct Vertex {
 	vec4 indices;
 	vec4 weights;
 };
+
+typedef vector<mat4> CurrentPose;
 
 struct Mesh {
 	vector<Vertex> vertices;
@@ -45,13 +50,80 @@ struct Mesh {
 mat4 gModel;
 mat4 gView;
 mat4 gProjection;
+unsigned int gCurrentFrame = 0;
+MD5_AnimInfo gAnimInfo;
+GLuint ghSkeletonPositionBuffer;
 
 vector<Mesh> gMeshes;
+CurrentPose gCurrentPose;
+
+// Shaders
 Shader *gpShader;
+Shader *gpSkeletonShader;
 
 // TEST
 GLuint ghTestPositions;
 GLuint ghTestIndices;
+
+void computeCurrentPose() {
+	vector<float> &frameData= gAnimInfo.framesData[gCurrentFrame];
+	unsigned int numJoints = gAnimInfo.baseframeJoints.size();
+
+	for(int i = 0; i < numJoints; ++i) {
+		const BaseframeJoint &baseframeJoint = gAnimInfo.baseframeJoints[i];
+		const JointInfo &jointInfo = gAnimInfo.jointsInfo[i];
+
+		// Start with the default settings from basejoint
+		vec3 position = baseframeJoint.position;
+		quat orientation = baseframeJoint.orientation;
+
+		// Start replacing with specific frame data
+		int flags = jointInfo.flags;
+		int offset = jointInfo.startIndex;
+
+		if(flags & (1 << 0)) {
+			position.x = frameData[offset++];
+		}
+		if(flags & (1 << 1)) {
+			position.y = frameData[offset++];
+		}
+		if(flags & (1 << 2)) {
+			position.z = frameData[offset++];
+		}
+		if(flags & (1 << 3)) {
+			orientation.x = frameData[offset++];
+		}
+		if(flags & (1 << 4)) {
+			orientation.y = frameData[offset++];
+		}
+		if(flags & (1 << 5)) {
+			orientation.z = frameData[offset++];
+		}
+
+		// Compute the w-component of the quaternion
+		float temp = 1 - orientation.x * orientation.x
+					   - orientation.y * orientation.y
+					   - orientation.z * orientation.z;
+		if(temp < 0) {
+			orientation.w = 0;
+		} else {
+			orientation.w = -1 * sqrtf(temp);
+		}
+
+		mat4 transM = glm::translate(mat4(), position);
+		mat4 rotM = glm::mat4_cast(orientation);
+		mat4 combinedM = transM * rotM;
+
+		// Convert this point to model space
+		if(jointInfo.parent > -1) {			
+			mat4 parentM = gCurrentPose[jointInfo.parent];
+			combinedM = parentM * combinedM;
+		}
+
+		gCurrentPose[i] = combinedM;
+		cout << jointInfo.name << " " << combinedM[3][0] << ", " << combinedM[3][1] << ", " << combinedM[3][2] << endl;
+	}
+}
 
 void initTestMesh() {
 	float halfLen =5.0f;
@@ -119,6 +191,12 @@ void initModel() {
 	};
 }
 
+void initAnimations() {
+	MD5_AnimReader reader;
+	gAnimInfo = reader.parse("Boblamp/boblampclean.md5anim");
+	gCurrentPose.resize(gAnimInfo.baseframeJoints.size());
+}
+
 void initModelRenderData() {
 	for(auto meshIter = gMeshes.begin(); meshIter != gMeshes.end(); ++meshIter) {
 		Mesh &mesh = *meshIter;
@@ -166,6 +244,40 @@ void renderMeshes() {
 	}
 }
 
+void renderSkeleton() {
+	vector<GLfloat> vertices;
+
+	for(int i = 0; i < gAnimInfo.jointsInfo.size(); ++i) {
+		const JointInfo &jointInfo = gAnimInfo.jointsInfo[i];
+		if(jointInfo.parent > 1) {
+			mat4 transformM = gCurrentPose[i];
+			mat4 parentTransformM = gCurrentPose[jointInfo.parent];
+			
+			vertices.push_back(transformM[3][0]);
+			vertices.push_back(transformM[3][1]);
+			vertices.push_back(transformM[3][2]);
+
+			vertices.push_back(parentTransformM[3][0]);
+			vertices.push_back(parentTransformM[3][1]);
+			vertices.push_back(parentTransformM[3][2]);
+		}
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, ghSkeletonPositionBuffer);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &vertices[0], GL_STATIC_DRAW);
+
+	glUseProgram(gpSkeletonShader->handle());
+	mat4 model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
+	mat4 MVP = gProjection * gView * model;
+	GLint location = glGetUniformLocation(gpShader->handle(), "MVP");
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+
+
+	glDrawArrays(GL_LINES, 0, 2 * vertices.size());
+}
+
 void render() {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -174,6 +286,7 @@ void render() {
 
 	renderTestMesh();
 	renderMeshes();
+	renderSkeleton();
 
 	glutSwapBuffers();
 }
@@ -219,6 +332,30 @@ void initShader() {
 	}
 }
 
+void initSkeletonShader() {
+	gpSkeletonShader = new Shader();
+	
+	if(!gpSkeletonShader->compile("Skeleton.vert", GL_VERTEX_SHADER)) {
+		cout << "Problem compiling the skeleton.vert shader." << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	if(!gpSkeletonShader->compile("Skeleton.frag", GL_FRAGMENT_SHADER)) {
+		cout << "Problem compiling the skeleton.frag shader." << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	glBindAttribLocation(gpSkeletonShader->handle(), 0, "VertexPosition");
+
+	if(!gpSkeletonShader->link()) {
+		cout << "Could not link the skeleton shader." << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// We'll do this here for now
+	glGenBuffers(1, &ghSkeletonPositionBuffer);
+}
+
 void initCamera() {
 	// The MD5 format points the model along the z-axis headfirst, so we need to rotate the model.
 	//gModel = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
@@ -230,10 +367,15 @@ void initCamera() {
 int main(int argc, char **argv) {	
 	initGL(argc, argv);
 	initShader();
+	initSkeletonShader();
 	initCamera();
 	initTestMesh();
 	initModel();
+	initAnimations();
 	initModelRenderData();
+
+	// Temp
+	computeCurrentPose();
 
 	glutMainLoop();
 

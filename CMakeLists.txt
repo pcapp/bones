@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(bones)
 
 set(INCLUDES MD5Reader.h AnimCore.h MD5_MeshReader.h Shader.h)
-set(SHADERS simple.vert simple.frag mesh.vert mesh.frag baseframe_shader.vert baseframe_shader.frag)
+set(SHADERS simple.vert simple.frag mesh.vert mesh.frag baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag)
 source_group(Shaders FILES simple.vert simple.frag mesh.vert mesh.frag)
 set(SRCS main.cpp MD5Reader.cpp MD5_MeshReader.cpp Shader.cpp ${SHADERS})
 
@@ -53,3 +53,10 @@ set(BASEFRAME_RENDER_INCLUDES MD5_MeshReader.h Shader.h)
 
 add_executable(baseframe_render ${BASEFRAME_RENDER_SRCS} ${BASEFRAME_RENDER_INCLUDES})
 target_link_libraries(baseframe_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
+
+# Created a matrix palette (IBP * CurrentPose) matrix and renders the mesh
+set(ANIMATED_RENDER_SRCS animated_render.cpp MD5_MeshReader.cpp MD5_AnimReader.cpp Shader.cpp baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag)
+set(ANIMATED_RENDER_INCLUDES MD5_MeshReader.h MD5_AnimReader.h Shader.h)
+
+add_executable(animated_render ${ANIMATED_RENDER_SRCS} ${ANIMATED_RENDER_INCLUDES})
+target_link_libraries(animated_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
