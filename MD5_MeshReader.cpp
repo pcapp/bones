@@ -41,7 +41,7 @@ MD5_MeshInfo MD5_MeshReader::parse(const std::string &filename) {
 	mMeshFile.close();
 	mesh.meshes = mMeshes;
 	mesh.joints = mJoints;
-
+	
 	return mesh;
 }
 

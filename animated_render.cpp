@@ -39,7 +39,7 @@ typedef vector<mat4> CurrentPose;
 
 struct Mesh {
 	vector<Vertex> vertices;
-	vector<unsigned int> indices;
+	vector<GLushort> indices;
 
 	vector<GLfloat> positions;
 	GLuint hPositionBuffer;
@@ -121,7 +121,7 @@ void computeCurrentPose() {
 		}
 
 		gCurrentPose[i] = combinedM;
-		cout << jointInfo.name << " " << combinedM[3][0] << ", " << combinedM[3][1] << ", " << combinedM[3][2] << endl;
+		//cout << jointInfo.name << " " << combinedM[3][0] << ", " << combinedM[3][1] << ", " << combinedM[3][2] << endl;
 	}
 }
 
@@ -155,7 +155,6 @@ void initModel() {
 		const MD5_Mesh &md5mesh = *meshIter;
 		Mesh mesh;
 
-		cout << md5mesh.textureFilename << endl;
 		int count = 0;
 
 		for(auto vertIter = md5mesh.vertices.cbegin(); vertIter != md5mesh.vertices.cend(); ++vertIter) {
@@ -187,6 +186,14 @@ void initModel() {
 			mesh.positions.push_back(vert.position.z);
 		}
 
+		cout << md5mesh.textureFilename << " has " << md5mesh.triangles.size() << " triangles." << endl;
+		for(int i = 0; i < md5mesh.triangles.size(); ++i) {
+			const MD5_Triangle &triangle = md5mesh.triangles[i];
+			mesh.indices.push_back(triangle.indices[0]);
+			mesh.indices.push_back(triangle.indices[1]);
+			mesh.indices.push_back(triangle.indices[2]);
+		}
+
 		gMeshes.push_back(mesh);
 	};
 }
@@ -204,10 +211,15 @@ void initModelRenderData() {
 		// positions
 		glGenBuffers(1, &mesh.hPositionBuffer);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.hPositionBuffer);
-
 		GLsizei bufferSize = mesh.positions.size() * sizeof(GLfloat);
 		//cout << "Allocating a " << bufferSize << " byte buffer for vertex " << mesh.positions.size()/3 << " positions." << endl;
 		glBufferData(GL_ARRAY_BUFFER, bufferSize, &mesh.positions[0], GL_STATIC_DRAW);
+
+		// indices
+		glGenBuffers(1, &mesh.hIndexBuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
+		bufferSize = mesh.indices.size() * sizeof(GLushort);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, bufferSize, &mesh.indices[0], GL_STATIC_DRAW);
 	}
 }
 
@@ -240,7 +252,9 @@ void renderMeshes() {
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(0);
 
-		glDrawArrays(GL_POINTS, 0, mesh.vertices.size());
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
+		glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_SHORT, 0);
+		//glDrawArrays(GL_POINTS, 0, mesh.vertices.size());
 	}
 }
 
@@ -285,7 +299,9 @@ void render() {
 	glPointSize(5.0f);
 
 	renderTestMesh();
+	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 	renderMeshes();
+	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 	renderSkeleton();
 
 	glutSwapBuffers();
