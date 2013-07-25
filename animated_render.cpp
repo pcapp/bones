@@ -8,6 +8,7 @@
 #include <memory>
 #include <iostream>
 #include <vector>
+#include <sstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -16,6 +17,8 @@
 #include "MD5_MeshReader.h"
 #include "MD5_AnimReader.h"
 #include "Shader.h"
+
+#define MAX_JOINTS 64
 
 using std::unique_ptr;
 using std::cout;
@@ -40,9 +43,15 @@ typedef vector<mat4> CurrentPose;
 struct Mesh {
 	vector<Vertex> vertices;
 	vector<GLushort> indices;
-
+	
+	// Used to calculate VBO data
 	vector<GLfloat> positions;
+	vector<int> jointIndices;
+	vector<GLfloat> jointWeights;
+
 	GLuint hPositionBuffer;
+	GLuint hJointIndexBuffer;
+	GLuint hJointWeightBuffer;
 	GLuint hIndexBuffer;
 };
 
@@ -50,7 +59,11 @@ struct Mesh {
 mat4 gModel;
 mat4 gView;
 mat4 gProjection;
-unsigned int gCurrentFrame = 0;
+
+vector<mat4> gIBPMatrices;
+vector<mat4> gMatrixPalette;
+
+unsigned int gCurrentFrame = 75;
 MD5_AnimInfo gAnimInfo;
 GLuint ghSkeletonPositionBuffer;
 
@@ -61,7 +74,7 @@ CurrentPose gCurrentPose;
 Shader *gpShader;
 Shader *gpSkeletonShader;
 
-// TEST
+// Debug Rendering
 GLuint ghTestPositions;
 GLuint ghTestIndices;
 
@@ -155,8 +168,6 @@ void initModel() {
 		const MD5_Mesh &md5mesh = *meshIter;
 		Mesh mesh;
 
-		int count = 0;
-
 		for(auto vertIter = md5mesh.vertices.cbegin(); vertIter != md5mesh.vertices.cend(); ++vertIter) {
 			const MD5_Vertex &md5vertex = *vertIter;
 			vec3 finalPos(0);
@@ -172,21 +183,43 @@ void initModel() {
 				// TranslationMatrix * RotationMatrix * jointLocalPoint
 				vec3 tempPos = tempPos = joint.orientation * weight.position + joint.position;				
 				finalPos += tempPos * weight.weightBias;
-				//finalPos = vec3(0);
 
 				vert.indices[i] = weight.jointIndex;
 				vert.weights[i] = weight.weightBias;
+
+				mesh.jointIndices.push_back(weight.jointIndex);
+				mesh.jointWeights.push_back(weight.weightBias);
+				//mesh.jointWeights.push_back(0);
 			}
 			
+			// WE NEED 4 ENTRIES; RIGHT NOW I ONLY HAVE WEIGHTCOUNT ENTRIES
+			for(int i = md5vertex.weightCount; i < 4; ++i) {
+				mesh.jointIndices.push_back(-1);
+				mesh.jointWeights.push_back(0.0f);
+			}
+
 			vert.position = finalPos;	
-			//cout << "[" << count++ << "] " << vert.position.x << ", " << vert.position.y << ", " << vert.position.z << endl;
+			
 			mesh.vertices.push_back(vert);
 			mesh.positions.push_back(vert.position.x);
 			mesh.positions.push_back(vert.position.y);
 			mesh.positions.push_back(vert.position.z);
 		}
 
-		cout << md5mesh.textureFilename << " has " << md5mesh.triangles.size() << " triangles." << endl;
+		// temp
+		/*cout << "joint indices" << endl;
+		for(auto iter = mesh.jointIndices.cbegin(); iter != mesh.jointIndices.cend(); ++iter) {
+			cout << *iter << " ";
+		}
+		cout << endl;*/
+
+		/*cout << "joint weights" << endl;
+		for(auto iter = mesh.jointWeights.cbegin(); iter != mesh.jointWeights.cend(); ++iter) {
+			cout << *iter << " ";
+		}
+		cout << endl;*/
+
+		// Set up the triangle indices
 		for(int i = 0; i < md5mesh.triangles.size(); ++i) {
 			const MD5_Triangle &triangle = md5mesh.triangles[i];
 			mesh.indices.push_back(triangle.indices[0]);
@@ -196,6 +229,22 @@ void initModel() {
 
 		gMeshes.push_back(mesh);
 	};
+
+	// Set up the inverse bind pose matrix for each joint
+	for(int i = 0; i < meshInfo.joints.size(); ++i) {
+		const Joint &joint = meshInfo.joints[i];
+
+		// rotM and transM are model space transformation matrices. 
+		// Combine then invert them to construct the inverse bind pose matrix for each joint.
+		mat4 rotM = glm::mat4_cast(joint.orientation);
+		mat4 transM = glm::translate(mat4(), joint.position);
+		mat4 combinedM = transM * rotM;
+		mat4 InvBindPosM = glm::inverse(combinedM);
+		gIBPMatrices.push_back(InvBindPosM);
+	}
+
+	// We can also initialize the skinning palette to have the required number of joints.
+	gMatrixPalette.resize(meshInfo.joints.size());
 }
 
 void initAnimations() {
@@ -212,9 +261,20 @@ void initModelRenderData() {
 		glGenBuffers(1, &mesh.hPositionBuffer);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.hPositionBuffer);
 		GLsizei bufferSize = mesh.positions.size() * sizeof(GLfloat);
-		//cout << "Allocating a " << bufferSize << " byte buffer for vertex " << mesh.positions.size()/3 << " positions." << endl;
 		glBufferData(GL_ARRAY_BUFFER, bufferSize, &mesh.positions[0], GL_STATIC_DRAW);
 
+		// joint indices
+		glGenBuffers(1, &mesh.hJointIndexBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hJointIndexBuffer);
+		bufferSize = mesh.jointIndices.size() * sizeof(int);
+		glBufferData(GL_ARRAY_BUFFER, bufferSize, &mesh.jointIndices[0], GL_STATIC_DRAW);
+
+		// joint weights
+		glGenBuffers(1, &mesh.hJointWeightBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hJointWeightBuffer);
+		bufferSize = mesh.jointWeights.size() * sizeof(GLfloat);
+		glBufferData(GL_ARRAY_BUFFER, bufferSize, &mesh.jointWeights[0], GL_STATIC_DRAW);
+		
 		// indices
 		glGenBuffers(1, &mesh.hIndexBuffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
@@ -246,11 +306,37 @@ void renderMeshes() {
 	GLint location = glGetUniformLocation(gpShader->handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 
+	std::stringstream name;
+
+	for(int i = 0; i < gMatrixPalette.size(); ++i) {
+		name.str("");
+		name.clear();
+		name << "MatrixPalette[" << i << "]";
+		location = glGetUniformLocation(gpShader->handle(), name.str().c_str());
+		if(location == -1) {
+			cout << name.str() << " did not correspond to a valid uniform location." << endl;
+		} else {
+			glUniformMatrix4fv(location, 1, false, glm::value_ptr(gMatrixPalette[i]));
+		}
+	}
+
 	for(auto meshIter = gMeshes.cbegin(); meshIter != gMeshes.cend(); ++meshIter) {
 		const Mesh &mesh = *meshIter;
+
+		// baseframe position
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.hPositionBuffer);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(0);
+
+		// joint indices
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hJointIndexBuffer);
+		glVertexAttribPointer(1, 4, GL_INT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(1);
+
+		// joint weights
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hJointWeightBuffer);
+		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(2);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
 		glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_SHORT, 0);
@@ -290,6 +376,18 @@ void renderSkeleton() {
 
 
 	glDrawArrays(GL_LINES, 0, 2 * vertices.size());
+}
+
+void updateMatrixPalette() {
+	const int numJoints = gCurrentPose.size();
+
+	for(int i = 0 ; i < numJoints; ++i) {
+		mat4 &IBP = gIBPMatrices[i];
+		mat4 &C_j_to_m = gCurrentPose[i];
+
+		gMatrixPalette[i] = C_j_to_m * IBP;
+		//gMatrixPalette[i] = mat4();
+	}
 }
 
 void render() {
@@ -336,6 +434,8 @@ void initShader() {
 	}
 
 	glBindAttribLocation(gpShader->handle(), 0, "VertexPosition");
+	glBindAttribLocation(gpShader->handle(), 1, "JointIndices");
+	glBindAttribLocation(gpShader->handle(), 2, "JointWeights");
 
 	if(!gpShader->compile("baseframe_shader.frag", GL_FRAGMENT_SHADER)) {
 		cout << "Could not build baseframe_shader.frag" << endl;
@@ -392,6 +492,7 @@ int main(int argc, char **argv) {
 
 	// Temp
 	computeCurrentPose();
+	updateMatrixPalette();
 
 	glutMainLoop();
 
