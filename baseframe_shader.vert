@@ -6,8 +6,7 @@ uniform mat4 MVP;
 uniform mat4 MatrixPalette[64];
 
 void main() {
-	vec4 finalPosition = vec4(0.0, 0.0, 0.0, 1.0);
-	//vec4 finalPosition = vec4(0.0, 0.0, 0.0, 0.0);
+	vec4 finalPosition = vec4(0.0, 0.0, 0.0, 0.0);
 
 	for(int i = 0; i < 4; ++i) {
 		float weight = JointWeights[i];
