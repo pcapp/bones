@@ -55,8 +55,19 @@ add_executable(baseframe_render ${BASEFRAME_RENDER_SRCS} ${BASEFRAME_RENDER_INCL
 target_link_libraries(baseframe_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
 
 # Created a matrix palette (IBP * CurrentPose) matrix and renders the mesh
+set(ANIMATED_RENDER_SHADERS baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag)
 set(ANIMATED_RENDER_SRCS animated_render.cpp MD5_MeshReader.cpp MD5_AnimReader.cpp Shader.cpp baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag)
 set(ANIMATED_RENDER_INCLUDES MD5_MeshReader.h MD5_AnimReader.h Shader.h)
+
+foreach(SHADER ${ANIMATED_RENDER_SHADERS}) 
+	add_custom_command(TARGET animated_render POST_BUILD 
+		# Used for VS so we can 
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${SHADER} 
+										 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
+		# Place the shaders in the same directory as the executable
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/${SHADER} $<TARGET_FILE_DIR:animated_render>/${SHADER}
+	)
+endforeach()
 
 add_executable(animated_render ${ANIMATED_RENDER_SRCS} ${ANIMATED_RENDER_INCLUDES})
 target_link_libraries(animated_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
