@@ -8,6 +8,7 @@
 #include <memory>
 #include <iostream>
 #include <vector>
+#include <string>
 #include <sstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -24,6 +25,7 @@ using std::unique_ptr;
 using std::cout;
 using std::endl;
 using std::for_each;
+using std::string;
 using std::vector;
 
 using glm::vec3;
@@ -73,6 +75,7 @@ CurrentPose gCurrentPose;
 // Shaders
 Shader *gpShader;
 Shader *gpSkeletonShader;
+Shader *gpTestMeshShader;
 
 // Debug Rendering
 GLuint ghTestPositions;
@@ -286,8 +289,8 @@ void initModelRenderData() {
 void renderTestMesh() {
 	mat4 MVP = gProjection * gView * gModel;
 
-	glUseProgram(gpShader->handle());
-	GLint location = glGetUniformLocation(gpShader->handle(), "MVP");
+	glUseProgram(gpTestMeshShader->handle());
+	GLint location = glGetUniformLocation(gpTestMeshShader->handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 
 	glBindBuffer(GL_ARRAY_BUFFER, ghTestPositions);
@@ -369,7 +372,7 @@ void renderSkeleton() {
 	glUseProgram(gpSkeletonShader->handle());
 	mat4 model = glm::rotate(mat4(), -90.0f, vec3(1.0, 0.0, 0.0));
 	mat4 MVP = gProjection * gView * model;
-	GLint location = glGetUniformLocation(gpShader->handle(), "MVP");
+	GLint location = glGetUniformLocation(gpSkeletonShader->handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(0);
@@ -448,6 +451,29 @@ void initShader() {
 	}
 }
 
+void initTestMeshShader() {
+	gpTestMeshShader = new Shader();
+	const string &vertShaderName = "testmesh.vert";
+	const string &fragShaderName = "testmesh.frag";
+
+	if(!gpTestMeshShader->compile(vertShaderName, GL_VERTEX_SHADER)) {
+		cout << "Could not build " << vertShaderName << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	glBindAttribLocation(gpTestMeshShader->handle(), 0, "VertexPosition");
+	
+	if(!gpTestMeshShader->compile(fragShaderName, GL_FRAGMENT_SHADER)) {
+		cout << "Could not build " << fragShaderName << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	if(!gpTestMeshShader->link()) {
+		cout << "Could not link the shader." << endl;
+		exit(EXIT_FAILURE);
+	}
+}
+
 void initSkeletonShader() {
 	gpSkeletonShader = new Shader();
 	
@@ -486,6 +512,7 @@ int main(int argc, char **argv) {
 	initSkeletonShader();
 	initCamera();
 	initTestMesh();
+	initTestMeshShader();
 	initModel();
 	initAnimations();
 	initModelRenderData();

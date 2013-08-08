@@ -15,11 +15,13 @@ find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(GLM REQUIRED)
+find_package(SOIL REQUIRED)
 
 include_directories(${OPENGL_INCLUDE_DIR})
 include_directories(${GLUT_INCLUDE_DIR})
 include_directories(${GLEW_INCLUDE_PATH})
 include_directories(${GLM_INCLUDE_DIRS})
+include_directories(${SOIL_INCLUDE_DIRS})
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++")
 
@@ -55,9 +57,11 @@ add_executable(baseframe_render ${BASEFRAME_RENDER_SRCS} ${BASEFRAME_RENDER_INCL
 target_link_libraries(baseframe_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
 
 # Created a matrix palette (IBP * CurrentPose) matrix and renders the mesh
-set(ANIMATED_RENDER_SHADERS baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag)
-set(ANIMATED_RENDER_SRCS animated_render.cpp MD5_MeshReader.cpp MD5_AnimReader.cpp Shader.cpp baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag)
+set(ANIMATED_RENDER_SHADERS baseframe_shader.vert baseframe_shader.frag Skeleton.vert Skeleton.frag testmesh.vert testmesh.frag)
+set(ANIMATED_RENDER_SRCS animated_render.cpp MD5_MeshReader.cpp MD5_AnimReader.cpp Shader.cpp ${ANIMATED_RENDER_SHADERS})
 set(ANIMATED_RENDER_INCLUDES MD5_MeshReader.h MD5_AnimReader.h Shader.h)
+
+add_executable(animated_render ${ANIMATED_RENDER_SRCS} ${ANIMATED_RENDER_INCLUDES})
 
 foreach(SHADER ${ANIMATED_RENDER_SHADERS}) 
 	add_custom_command(TARGET animated_render POST_BUILD 
@@ -69,5 +73,5 @@ foreach(SHADER ${ANIMATED_RENDER_SHADERS})
 	)
 endforeach()
 
-add_executable(animated_render ${ANIMATED_RENDER_SRCS} ${ANIMATED_RENDER_INCLUDES})
-target_link_libraries(animated_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY})
+
+target_link_libraries(animated_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY} ${SOIL_LIBRARIES})
