@@ -24,23 +24,30 @@ std::ostream &operator<<(std::ostream &, const MD5_Triangle &);
 std::ostream &operator<<(std::ostream &, const MD5_Weight &);
 
 MD5_MeshInfo MD5_MeshReader::parse(const std::string &filename) {
+	cout << "Opening file " << filename << endl;
 	mMeshFile.open(filename);
 
-	if(!mMeshFile) {				
+	if(!mMeshFile) {	
+		cout << "Could not open " << filename << endl;
 		throw runtime_error("Could not open the file.");
 	} 
 
 	MD5_MeshInfo mesh;
 
+	cout << "processVersion" << endl;
 	processVersion();
+	cout << "processCommandLine" << endl;
 	processCommandLine();
+	cout << "processJointsAndMeshCounts()" << endl;
 	processJointsAndMeshCounts();
+	cout << "processJoints" << endl;
 	processJoints();
 	processMeshes();
 
 	mMeshFile.close();
 	mesh.meshes = mMeshes;
-
+	mesh.joints = mJoints;
+	
 	return mesh;
 }
 
@@ -76,6 +83,7 @@ void MD5_MeshReader::processJointsAndMeshCounts() {
 	} while(mMeshFile && line == "");
 
 	if(!mMeshFile) {
+		cout << "EOF reached and no joint count found." << endl;
 		throw runtime_error("EOF reached and no joint count found.");
 	}
 
@@ -93,6 +101,7 @@ void MD5_MeshReader::processJointsAndMeshCounts() {
 	} while(mMeshFile && line == "");
 
 	if(!mMeshFile) {
+		cout << "EOF reached and no mesh count found." << endl;
 		throw runtime_error("EOF reached and no mesh count found.");
 	}
 

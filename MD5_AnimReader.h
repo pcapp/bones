@@ -1,10 +1,11 @@
-#ifndef MD5READER_H
-#define MD5READER_H
+#ifndef MD5_ANIM_READER_H
+#define MD5_ANIM_READER_H
 
-#include <string>
 #include <fstream>
-#include "AnimCore.h"
-#include "MD5_MeshReader.h"
+#include <string>
+#include <vector>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 struct JointInfo {
 	std::string name;
@@ -26,14 +27,9 @@ struct MD5_AnimInfo {
 	int numFrames;
 };
 
-struct MD5_VO {
-	MD5_MeshInfo mesh;
-	std::vector<MD5_AnimInfo> animations;
-};
-
-class Md5Reader {
+class MD5_AnimReader {
 public:
-	MD5_VO parse(const std::string &meshFilename, const std::string &animFilename);
+	MD5_AnimInfo parse(const std::string &filename);
 private:
 	void processAnimHeader();
 	void processHierarchy();
