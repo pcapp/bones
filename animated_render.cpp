@@ -7,9 +7,11 @@
 #include <algorithm>
 #include <memory>
 #include <iostream>
+#include <map>
 #include <vector>
 #include <string>
 #include <sstream>
+#include <utility>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -22,9 +24,11 @@
 
 #define MAX_JOINTS 64
 
+using std::map;
 using std::unique_ptr;
 using std::cout;
 using std::endl;
+using std::make_pair;
 using std::for_each;
 using std::string;
 using std::vector;
@@ -51,14 +55,19 @@ struct Mesh {
 	vector<GLfloat> positions;
 	vector<int> jointIndices;
 	vector<GLfloat> jointWeights;
+	vector<GLfloat> textureCoords;
 
 	GLuint hPositionBuffer;
 	GLuint hJointIndexBuffer;
 	GLuint hJointWeightBuffer;
 	GLuint hIndexBuffer;
+	GLuint hTextureCoordsBuffer;
+	GLuint texID;
 };
 
 // GLOBALS
+map<string, GLint> gNameToTexID;
+
 mat4 gModel;
 mat4 gView;
 mat4 gProjection;
@@ -66,7 +75,7 @@ mat4 gProjection;
 vector<mat4> gIBPMatrices;
 vector<mat4> gMatrixPalette;
 
-unsigned int gCurrentFrame = 75;
+unsigned int gCurrentFrame = 0;
 MD5_AnimInfo gAnimInfo;
 GLuint ghSkeletonPositionBuffer;
 
@@ -184,10 +193,12 @@ void initModel() {
 	MD5_MeshReader parser;
 	MD5_MeshInfo meshInfo = parser.parse("Boblamp/boblampclean.md5mesh");
 
+	// Process each mesh found in the md5mesh file
 	for(auto meshIter = meshInfo.meshes.cbegin(); meshIter != meshInfo.meshes.cend(); ++meshIter) {
 		const MD5_Mesh &md5mesh = *meshIter;
 		Mesh mesh;
 
+		// Prepare the vertices
 		for(auto vertIter = md5mesh.vertices.cbegin(); vertIter != md5mesh.vertices.cend(); ++vertIter) {
 			const MD5_Vertex &md5vertex = *vertIter;
 			vec3 finalPos(0);
@@ -224,21 +235,11 @@ void initModel() {
 			mesh.positions.push_back(vert.position.x);
 			mesh.positions.push_back(vert.position.y);
 			mesh.positions.push_back(vert.position.z);
-		}
 
-		// temp
-		/*cout << "joint indices" << endl;
-		for(auto iter = mesh.jointIndices.cbegin(); iter != mesh.jointIndices.cend(); ++iter) {
-			cout << *iter << " ";
+			mesh.textureCoords.push_back(md5vertex.u);
+			mesh.textureCoords.push_back(md5vertex.v);
 		}
-		cout << endl;*/
-
-		/*cout << "joint weights" << endl;
-		for(auto iter = mesh.jointWeights.cbegin(); iter != mesh.jointWeights.cend(); ++iter) {
-			cout << *iter << " ";
-		}
-		cout << endl;*/
-
+		
 		// Set up the triangle indices
 		for(int i = 0; i < md5mesh.triangles.size(); ++i) {
 			const MD5_Triangle &triangle = md5mesh.triangles[i];
@@ -246,6 +247,24 @@ void initModel() {
 			mesh.indices.push_back(triangle.indices[1]);
 			mesh.indices.push_back(triangle.indices[2]);
 		}
+
+		// Prepare the texutre, if necessary
+		GLuint texID = 0;
+
+		if(gNameToTexID.find(md5mesh.textureFilename) == gNameToTexID.end()) {
+
+			// TODO: Prepare this in a neutral manner, i.e. not for just Boblamp
+			string fullname = "Boblamp/" + md5mesh.textureFilename;
+			texID = SOIL_load_OGL_texture(fullname.c_str(), SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, 0);
+			if(texID == 0) {
+				cout << "Error preparing " << fullname << " as a texture." << endl;
+				cout << SOIL_last_result() << endl;
+			} else {
+				gNameToTexID.insert(make_pair(md5mesh.textureFilename, texID));
+			}
+		}
+
+		mesh.texID = texID;
 
 		gMeshes.push_back(mesh);
 	};
@@ -294,8 +313,14 @@ void initModelRenderData() {
 		glBindBuffer(GL_ARRAY_BUFFER, mesh.hJointWeightBuffer);
 		bufferSize = mesh.jointWeights.size() * sizeof(GLfloat);
 		glBufferData(GL_ARRAY_BUFFER, bufferSize, &mesh.jointWeights[0], GL_STATIC_DRAW);
+
+		// texture coordinates
+		glGenBuffers(1, &mesh.hTextureCoordsBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hTextureCoordsBuffer);
+		bufferSize = mesh.textureCoords.size() * sizeof(GLfloat);
+		glBufferData(GL_ARRAY_BUFFER, bufferSize, &mesh.textureCoords[0], GL_STATIC_DRAW);
 		
-		// indices
+		// triangle indices
 		glGenBuffers(1, &mesh.hIndexBuffer);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
 		bufferSize = mesh.indices.size() * sizeof(GLushort);
@@ -374,6 +399,26 @@ void renderMeshes() {
 		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(2);
 
+		// texture coordinates
+		GLint textureCoordsLoc = glGetAttribLocation(gpShader->handle(), "TextureCoords");
+		if(textureCoordsLoc == -1) {
+			cout << "Error: Cannot get the location of TextureCoords attribute." << endl;
+		}
+
+		GLint imageTexLoc = glGetUniformLocation(gpShader->handle(), "imageTex");
+		if(imageTexLoc == -1) {
+			cout << "Error: Cannot get the location of the imageTex uniform." << endl;
+		} else {
+			glUniform1d(imageTexLoc, 0);
+		}
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, mesh.texID);
+
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.hTextureCoordsBuffer);
+		glVertexAttribPointer(textureCoordsLoc, 2, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(textureCoordsLoc);
+
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.hIndexBuffer);
 		glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_SHORT, 0);
 		//glDrawArrays(GL_POINTS, 0, mesh.vertices.size());
@@ -432,9 +477,9 @@ void render() {
 	glPointSize(5.0f);
 
 	renderTestMesh();
-	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+	//glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 	renderMeshes();
-	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+	//glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 	renderSkeleton();
 
 	glutSwapBuffers();
@@ -450,7 +495,8 @@ void initGL(int argc, char **argv) {
 	if(glewInit() != GLEW_OK) {
 		cout << "Could not initialize GLEW." << endl;
 	}
-	
+
+
 	const GLubyte *version = glGetString(GL_VERSION);
 	const GLubyte *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
 

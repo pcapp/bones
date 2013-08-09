@@ -180,12 +180,10 @@ void MD5_MeshReader::processMesh() {
 		cout << "No shader in mesh. Do something." << endl;
 	}
 
-	string filename;
-	tokens >> filename;
-	mCurMesh.textureFilename = filename;
-	//cout << "TODO Read and process " << filename << endl;
-
-
+	string quotedFilename;
+	tokens >> quotedFilename;
+	mCurMesh.textureFilename = quotedFilename.substr(1, quotedFilename.size() - 2);
+	
 	// Eat spaces
 	do {
 		getline(mMeshFile, line);
