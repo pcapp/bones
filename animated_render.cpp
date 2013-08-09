@@ -14,6 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <SOIL.h>
 
 #include "MD5_MeshReader.h"
 #include "MD5_AnimReader.h"
@@ -79,7 +80,9 @@ Shader *gpTestMeshShader;
 
 // Debug Rendering
 GLuint ghTestPositions;
+GLuint ghTestTextureCoords;
 GLuint ghTestIndices;
+GLuint ghTexID;
 
 void computeCurrentPose() {
 	vector<float> &frameData= gAnimInfo.framesData[gCurrentFrame];
@@ -142,7 +145,7 @@ void computeCurrentPose() {
 }
 
 void initTestMesh() {
-	float halfLen =5.0f;
+	float halfLen = 25.0f;
 	float zPos = -0.5f;
 
 	GLfloat vertexData[] = {
@@ -152,12 +155,26 @@ void initTestMesh() {
 		 halfLen,  halfLen, zPos  // V3
 	};
 
+	GLfloat uvData[] = {
+		0.0f, 1.0f, // V0
+		0.0f, 0.0f, // V1
+		1.0f, 0.0f, // V2
+		1.0f, 1.0f  // V3
+	};
+
 	GLushort indices[] = {0, 1, 2, 0, 2, 3};
 
+	// position
 	glGenBuffers(1, &ghTestPositions);
 	glBindBuffer(GL_ARRAY_BUFFER, ghTestPositions);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData) * sizeof(GLfloat), vertexData, GL_STATIC_DRAW);
 
+	// texture coordinates
+	glGenBuffers(1, &ghTestTextureCoords);
+	glBindBuffer(GL_ARRAY_BUFFER, ghTestTextureCoords);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(uvData) * sizeof(GLfloat), uvData, GL_STATIC_DRAW);
+
+	// triangle indices
 	glGenBuffers(1, &ghTestIndices);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ghTestIndices); 
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) * sizeof(GLushort), indices, GL_STATIC_DRAW);
@@ -293,10 +310,26 @@ void renderTestMesh() {
 	GLint location = glGetUniformLocation(gpTestMeshShader->handle(), "MVP");
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(MVP));
 
+	// positions
 	glBindBuffer(GL_ARRAY_BUFFER, ghTestPositions);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	GLint positionLoc = glGetAttribLocation(gpTestMeshShader->handle(), "VertexPosition");
+	glEnableVertexAttribArray(positionLoc);
+	glVertexAttribPointer(positionLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
+	// texture coordinates
+	glBindBuffer(GL_ARRAY_BUFFER, ghTestTextureCoords);
+	GLint textureCoordLoc = glGetAttribLocation(gpTestMeshShader->handle(), "TextureCoords");
+	glEnableVertexAttribArray(textureCoordLoc);
+	glVertexAttribPointer(textureCoordLoc, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+	// texture 
+	GLint textureLoc = glGetUniformLocation(gpTestMeshShader->handle(), "tex0");
+	glUniform1d(textureLoc, 0);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, ghTexID);
+
+	// triangle indices
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ghTestIndices);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 }
@@ -389,7 +422,6 @@ void updateMatrixPalette() {
 		mat4 &C_j_to_m = gCurrentPose[i];
 
 		gMatrixPalette[i] = C_j_to_m * IBP;
-		//gMatrixPalette[i] = mat4();
 	}
 }
 
@@ -462,6 +494,7 @@ void initTestMeshShader() {
 	}
 
 	glBindAttribLocation(gpTestMeshShader->handle(), 0, "VertexPosition");
+	glBindAttribLocation(gpTestMeshShader->handle(), 1, "TextureCoords");
 	
 	if(!gpTestMeshShader->compile(fragShaderName, GL_FRAGMENT_SHADER)) {
 		cout << "Could not build " << fragShaderName << endl;
@@ -470,6 +503,13 @@ void initTestMeshShader() {
 
 	if(!gpTestMeshShader->link()) {
 		cout << "Could not link the shader." << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// Set up the texture down here
+	ghTexID = SOIL_load_OGL_texture("UV_mapper.jpg", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	if(ghTexID == 0) {
+		cout << "Could not load the UV_mapper.jpg file and make a GL texture out of it." << endl;
 		exit(EXIT_FAILURE);
 	}
 }

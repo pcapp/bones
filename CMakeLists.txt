@@ -74,4 +74,11 @@ foreach(SHADER ${ANIMATED_RENDER_SHADERS})
 endforeach()
 
 
+add_custom_command(TARGET animated_render POST_BUILD
+	# For running from VS
+	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/UV_mapper.jpg "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
+	# Puts with the .exe
+	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/UV_mapper.jpg $<TARGET_FILE_DIR:animated_render>
+)
+
 target_link_libraries(animated_render ${GLUT_LIBRARIES} ${OPENGL_LIBRARY} ${GLEW_LIBRARY} ${SOIL_LIBRARIES})
