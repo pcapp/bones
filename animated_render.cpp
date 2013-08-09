@@ -476,11 +476,13 @@ void render() {
 
 	glPointSize(5.0f);
 
-	renderTestMesh();
+	//renderTestMesh();
 	//glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+	glEnable(GL_DEPTH_TEST);
 	renderMeshes();
 	//glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-	renderSkeleton();
+	//glDisable(GL_DEPTH_TEST);
+	//renderSkeleton();
 
 	glutSwapBuffers();
 }
@@ -496,7 +498,7 @@ void initGL(int argc, char **argv) {
 		cout << "Could not initialize GLEW." << endl;
 	}
 
-
+	glEnable(GL_DEPTH_TEST);
 	const GLubyte *version = glGetString(GL_VERSION);
 	const GLubyte *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
 
